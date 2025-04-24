@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}Suppliers - Construction Material Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+  <div class="px-4 py-6 sm:px-0">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-semibold text-gray-900">Suppliers Management</h2>
+      <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" onclick="openModal('addSupplierModal')">
+        Add New Supplier
+      </button>
+    </div>
+
+    <!-- Suppliers Table -->
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lead Time (Days)</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reliability Rating</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {% for supplier in suppliers %}
+          <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ supplier.name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.contact_person }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.email }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.phone }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.address }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.lead_time_days }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.reliability_rating }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button class="text-indigo-600 hover:text-indigo-900 mr-2" onclick="editSupplier({{ supplier.id }})">Edit</button>
+              <button class="text-red-600 hover:text-red-900" onclick="deleteSupplier({{ supplier.id }})">Delete</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Add Supplier Modal -->
+    <div id="addSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <!-- Modal header with close button -->
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Supplier</h3>
+          <button type="button" class="text-2xl leading-none" onclick="closeModal('addSupplierModal')">&times;</button>
+        </div>
+        <div class="mt-2 px-7 py-3">
+          <form id="addSupplierForm" action="/api/suppliers" method="POST" onsubmit="submitSupplierForm(event)">
+            <div class="mb-4">
+              <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+              <input type="text" id="name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="contact_person" class="block text-sm font-medium text-gray-700">Contact Person</label>
+              <input type="text" id="contact_person" name="contact_person" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+              <input type="email" id="email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
+              <input type="text" id="phone" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
+              <input type="text" id="address" name="address" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="lead_time_days" class="block text-sm font-medium text-gray-700">Lead Time (Days)</label>
+              <input type="number" id="lead_time_days" name="lead_time_days" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="reliability_rating" class="block text-sm font-medium text-gray-700">Reliability Rating</label>
+              <input type="number" step="0.1" id="reliability_rating" name="reliability_rating" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="items-center px-4 py-3">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                Add Supplier
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Supplier Modal -->
+    <div id="editSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <!-- Modal header with close button -->
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Supplier</h3>
+          <button type="button" class="text-2xl leading-none" onclick="closeModal('editSupplierModal')">&times;</button>
+        </div>
+        <div class="mt-2 px-7 py-3">
+          <form id="editSupplierForm">
+            <input type="hidden" id="edit_supplier_id" name="supplier_id">
+            <div class="mb-4">
+              <label for="edit_name" class="block text-sm font-medium text-gray-700">Name</label>
+              <input type="text" id="edit_name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_contact_person" class="block text-sm font-medium text-gray-700">Contact Person</label>
+              <input type="text" id="edit_contact_person" name="contact_person" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_email" class="block text-sm font-medium text-gray-700">Email</label>
+              <input type="email" id="edit_email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_phone" class="block text-sm font-medium text-gray-700">Phone</label>
+              <input type="text" id="edit_phone" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_address" class="block text-sm font-medium text-gray-700">Address</label>
+              <input type="text" id="edit_address" name="address" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_lead_time_days" class="block text-sm font-medium text-gray-700">Lead Time (Days)</label>
+              <input type="number" id="edit_lead_time_days" name="lead_time_days" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_reliability_rating" class="block text-sm font-medium text-gray-700">Reliability Rating</label>
+              <input type="number" step="0.1" id="edit_reliability_rating" name="reliability_rating" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+            </div>
+            <div class="items-center px-4 py-3">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                Update Supplier
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function openModal(modalId) {
+  document.getElementById(modalId).classList.remove('hidden');
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.add('hidden');
+}
+
+function editSupplier(supplierId) {
+  fetch(`/api/suppliers/${supplierId}`)
+    .then(response => response.json())
+    .then(supplier => {
+      document.getElementById('edit_supplier_id').value = supplier.id;
+      document.getElementById('edit_name').value = supplier.name;
+      document.getElementById('edit_contact_person').value = supplier.contact_person;
+      document.getElementById('edit_email').value = supplier.email;
+      document.getElementById('edit_phone').value = supplier.phone;
+      document.getElementById('edit_address').value = supplier.address;
+      document.getElementById('edit_lead_time_days').value = supplier.lead_time_days;
+      document.getElementById('edit_reliability_rating').value = supplier.reliability_rating;
+      openModal('editSupplierModal');
+    });
+}
+
+function deleteSupplier(supplierId) {
+  if (confirm('Are you sure you want to delete this supplier?')) {
+    fetch(`/api/suppliers/${supplierId}`, { method: 'DELETE' })
+      .then(response => {
+        if (response.ok) {
+          window.location.reload();
+        } else {
+          alert('Error deleting supplier');
+        }
+      });
+  }
+}
+
+document.getElementById('addSupplierForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const data = {};
+  formData.forEach((value, key) => {
+    data[key] = value;
+  });
+  
+  fetch('/api/suppliers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(response => {
+    if (response.ok) {
+      window.location.reload();
+    } else {
+      alert('Error adding supplier');
+    }
+  });
+});
+
+document.getElementById('editSupplierForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const supplierId = document.getElementById('edit_supplier_id').value;
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData);
+  
+  fetch(`/api/suppliers/${supplierId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(response => {
+    if (response.ok) {
+      window.location.reload();
+    } else {
+      alert('Error updating supplier');
+    }
+  });
+});
+
+function submitSupplierForm(event) {
+  event.preventDefault();
+  const form = document.getElementById('addSupplierForm');
+  const formData = new FormData(form);
+  const data = {};
+  formData.forEach((value, key) => { data[key] = value; });
+
+  fetch('/api/suppliers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.id) {
+      window.location.reload();
+    } else {
+      alert('Error adding supplier');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error adding supplier');
+  });
+}
+</script>
+{% endblock %}

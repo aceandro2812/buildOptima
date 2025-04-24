@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Consumption - Construction Material Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div class="px-4 py-6 sm:px-0">
+        <!-- Header Section -->
+        <div class="mb-6 flex justify-between items-center">
+            <h2 class="text-2xl font-semibold text-gray-900">Material Consumption</h2>
+            <button type="button" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#addConsumptionModal">
+                Add Consumption Record
+            </button>
+        </div>
+
+        <!-- Table Section -->
+        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Used</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for record in consumption_data %}
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <!-- Access material name via relationship -->
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ record.material.material_name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.quantity_used }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.project }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_used.strftime('%Y-%m-%d') }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.notes }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Add Consumption Modal -->
+        <div class="modal fade" id="addConsumptionModal" tabindex="-1" aria-labelledby="addConsumptionModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addConsumptionModalLabel">Add Consumption Record</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="consumptionForm" class="space-y-4">
+                            <div>
+                                <label for="material_id" class="block text-sm font-medium text-gray-700">Material</label>
+                                <select id="material_id" name="material_id" required class="mt-1 block w-full rounded-md">
+                                    {% for material in materials %}
+                                    <option value="{{ material.id }}">{{ material.material_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label for="quantity_used" class="block text-sm font-medium text-gray-700">Quantity Used</label>
+                                <input type="number" id="quantity_used" name="quantity_used" step="0.01" required class="mt-1 block w-full rounded-md">
+                            </div>
+                            
+                            <div>
+                                <label for="project" class="block text-sm font-medium text-gray-700">Project</label>
+                                <input type="text" id="project" name="project" required class="mt-1 block w-full rounded-md">
+                            </div>
+
+                            <div>
+                                <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
+                                <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-md"></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md">Add Record</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var consumptionModal = new bootstrap.Modal(document.getElementById('addConsumptionModal'));
+
+    document.getElementById('consumptionForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = {};
+
+        formData.forEach((value, key) => {
+            if (key === 'material_id') {
+                data[key] = parseInt(value);
+            } else if (key === 'quantity_used') {
+                data[key] = parseFloat(value);
+            } else {
+                data[key] = value;
+            }
+        });
+
+        // The 'date_used' will default to datetime.utcnow() in the schema if not provided
+
+        fetch('/api/consumption', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(response => response.json())
+        .then(() => {
+            consumptionModal.hide();
+            window.location.reload();
+        }).catch(error => {
+            alert('Error saving record');
+        });
+    });
+});
+</script>
+{% endblock %}

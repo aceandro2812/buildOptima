@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Construction Material Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+    <div class="px-4 py-6 sm:px-0">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Inventory Section -->
+            <div class="lg:col-span-2">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-gray-900">Inventory</h2>
+                </div>
+                <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reorder Point</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                {% for item in inventory %}
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ item.material_name }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.quantity }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.unit }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.reorder_point }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.last_updated.strftime('%Y-%m-%d %H:%M') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-900 mb-6">Alerts</h2>
+                <div class="space-y-4">
+                    {% for alert in alerts %}
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
+                        <div class="flex">
+                            <div class="flex-1">
+                                <h5 class="text-sm font-medium text-yellow-800">{{ alert.alert_type|title }}</h5>
+                                <p class="mt-1 text-sm text-yellow-700">{{ alert.message }}</p>
+                                <p class="mt-2 text-xs text-yellow-600">{{ alert.date_created.strftime('%Y-%m-%d %H:%M') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% if not alerts %}
+                    <div class="bg-gray-50 rounded-md p-4">
+                        <p class="text-sm text-gray-500">No active alerts</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

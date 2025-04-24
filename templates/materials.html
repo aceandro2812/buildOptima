@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+
+{% block title %}Materials - Construction Material Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+  <div class="px-4 py-6 sm:px-0">
+    {# --- Page Header & Action Buttons --- #}
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4"> {# Use flex-wrap for smaller screens #}
+      <h2 class="text-2xl font-semibold text-gray-900">Materials Management</h2>
+       <div class="flex flex-wrap gap-2"> {# Use flex-wrap #}
+          {# Analyze Inventory Button #}
+          <button
+            type="button"
+            id="analyzeInventoryBtn" {# Unique ID #}
+            class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+            </svg>
+            Analyze Inventory
+          </button>
+          {# Add Material Button #}
+          <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" onclick="openModal('addMaterialModal')">
+            Add New Material
+          </button>
+       </div>
+    </div>
+
+     {# --- Section to Display Inventory Analysis Report --- #}
+    <div id="inventoryReportSection" class="mb-6 hidden"> {# Initially hidden, Unique ID #}
+      <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">AI Inventory Analysis Report</h3>
+       {# Loading Indicator #}
+      <div id="inventoryReportLoading" class="text-center p-4 text-gray-600 hidden"> {# Unique ID #}
+         <svg class="animate-spin h-5 w-5 mr-3 inline-block text-blue-600" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Generating inventory analysis, please wait...
+      </div>
+       {# Error Display Area #}
+      <div id="inventoryReportError" class="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded relative mb-4 hidden" role="alert"> {# Unique ID #}
+        <strong class="font-bold block">Error Generating Report:</strong>
+        <span class="block sm:inline" id="inventoryReportErrorMessage"></span> {# Unique ID #}
+      </div>
+       {# Report Output Area (Container for Cards) #}
+      <div id="inventoryReportOutput" class="space-y-4"> {# Unique ID #}
+         {# Cards will be injected here by JavaScript #}
+      </div>
+    </div>
+    {# --- End Report Section --- #}
+
+
+    {# --- Materials Table --- #}
+    <h3 class="text-xl font-semibold text-gray-800 mb-3 mt-8">Materials Inventory</h3>
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+       <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reorder Point</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          {# Loop through materials passed from backend #}
+          {% for material in materials %}
+          <tr>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ material.material_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.quantity }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.unit }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.reorder_point }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.supplier.name if material.supplier else 'N/A' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.last_updated.strftime('%Y-%m-%d %H:%M') if material.last_updated else 'N/A' }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+              <button class="text-indigo-600 hover:text-indigo-900 mr-2" onclick="editMaterial({{ material.id }})">Edit</button>
+              <button class="text-red-600 hover:text-red-900" onclick="deleteMaterial({{ material.id }})">Delete</button>
+            </td>
+          </tr>
+          {% endfor %}
+           {# Message if no materials #}
+           {% if not materials %}
+            <tr>
+                <td colspan="7" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No materials found. Add materials to get started.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+      </table>
+    </div>
+     {# --- End Materials Table --- #}
+
+    {# --- Add Material Modal --- #}
+     <div id="addMaterialModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50"> {# Added z-index #}
+      <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"> {# Adjusted width #}
+        {# Modal Header #}
+        <div class="flex justify-between items-center pb-3">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Material</h3>
+          <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('addMaterialModal')">
+             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+          </button>
+        </div>
+        {# Modal Body Form #}
+        <div class="mt-2 px-1 py-3">
+          <form id="addMaterialForm">
+            <div class="mb-4">
+              <label for="material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+              <input type="text" id="material_name" name="material_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+              <input type="number" id="quantity" name="quantity" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">Unit (e.g., kg, m³, pcs)</label>
+              <input type="text" id="unit" name="unit" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point</label>
+              <input type="number" id="reorder_point" name="reorder_point" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+              <select id="supplier_id" name="supplier_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 <option value="">Select Supplier</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="pt-4">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Add Material
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+     {# --- End Add Material Modal --- #}
+
+    {# --- Edit Material Modal --- #}
+     <div id="editMaterialModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50"> {# Added z-index #}
+      <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"> {# Adjusted width #}
+         {# Modal Header #}
+        <div class="flex justify-between items-center pb-3">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Material</h3>
+           <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('editMaterialModal')">
+             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+          </button>
+        </div>
+         {# Modal Body Form #}
+        <div class="mt-2 px-1 py-3">
+          <form id="editMaterialForm">
+            <input type="hidden" id="edit_material_id" name="material_id">
+            <div class="mb-4">
+              <label for="edit_material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+              <input type="text" id="edit_material_name" name="material_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+              <input type="number" id="edit_quantity" name="quantity" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_unit" class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+              <input type="text" id="edit_unit" name="unit" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point</label>
+              <input type="number" id="edit_reorder_point" name="reorder_point" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+            <div class="mb-4">
+              <label for="edit_supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+              <select id="edit_supplier_id" name="supplier_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 <option value="">Select Supplier</option>
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="pt-4">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Update Material
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+     {# --- End Edit Material Modal --- #}
+  </div>
+</div>
+
+<script>
+// --- Modal/Form Handling (Existing Logic - slightly tidied) ---
+function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+    // Optionally reset forms within the closed modal
+    const form = document.getElementById(modalId)?.querySelector('form');
+    if (form) {
+        form.reset();
+    }
+}
+
+function editMaterial(materialId) {
+  fetch(`/api/materials/${materialId}`)
+    .then(response => { if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); } return response.json(); })
+    .then(material => {
+      if (!material || typeof material !== 'object') { throw new Error('Invalid material data received'); }
+      document.getElementById('edit_material_id').value = material.id;
+      document.getElementById('edit_material_name').value = material.material_name;
+      document.getElementById('edit_quantity').value = material.quantity;
+      document.getElementById('edit_unit').value = material.unit;
+      document.getElementById('edit_reorder_point').value = material.reorder_point;
+      // Ensure supplier_id is part of the response from your API
+      document.getElementById('edit_supplier_id').value = material.supplier_id || '';
+      openModal('editMaterialModal');
+    })
+    .catch(error => { console.error('Error fetching material details:', error); alert('Error fetching material details: ' + error.message); });
+}
+
+function deleteMaterial(materialId) {
+  if (confirm('Are you sure you want to delete this material? This action cannot be undone.')) {
+    fetch(`/api/materials/${materialId}`, { method: 'DELETE' })
+      .then(response => {
+        if (response.ok) { window.location.reload(); }
+        else { response.json().then(err => { alert('Error deleting material: ' + (err.detail || response.statusText)); }).catch(() => { alert('Error deleting material: ' + response.statusText); }); }
+      })
+      .catch(error => { console.error('Fetch error:', error); alert('Error deleting material.'); });
+  }
+}
+
+// Add Material Form Submission Handler
+document.getElementById('addMaterialForm').addEventListener('submit', function(e) {
+    e.preventDefault(); const formData = new FormData(this); const data = {}; let isValid = true;
+    formData.forEach((value, key) => {
+        if (['quantity', 'reorder_point'].includes(key)) { data[key] = value === '' ? null : parseFloat(value); if (data[key] === null || data[key] < 0) isValid = false; }
+        else if (key === 'supplier_id') { data[key] = value === '' ? null : parseInt(value); if (data[key] === null) isValid = false; }
+        else { data[key] = value.trim(); }
+    });
+    if (!data.material_name || !data.unit) isValid = false;
+    if (!isValid) { alert('Please fill all fields correctly. Quantity & Reorder Point must be >= 0.'); return; }
+    fetch('/api/materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+        .then(response => { if (response.ok) { return response.json(); } else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}: Could not add material`); }); } })
+        .then(data => { console.log('Success:', data); closeModal('addMaterialModal'); window.location.reload(); })
+        .catch(error => { console.error('Error:', error); alert(`Failed to add material: ${error.message}`); });
+});
+
+// Edit Material Form Submission Handler
+document.getElementById('editMaterialForm').addEventListener('submit', function(e) {
+    e.preventDefault(); const materialId = document.getElementById('edit_material_id').value; const formData = new FormData(this); const data = {}; let isValid = true;
+    formData.forEach((value, key) => {
+        if (['quantity', 'reorder_point'].includes(key)) { data[key] = value === '' ? null : parseFloat(value); if (data[key] === null || data[key] < 0) isValid = false; }
+        else if (key === 'supplier_id') { data[key] = value === '' ? null : parseInt(value); if (data[key] === null) isValid = false; }
+        else if (key !== 'material_id') { data[key] = value.trim(); }
+    });
+     if (!data.material_name || !data.unit) isValid = false;
+     if (!isValid) { alert('Please fill all fields correctly. Quantity & Reorder Point must be >= 0.'); return; }
+    fetch(`/api/materials/${materialId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+        .then(response => { if (response.ok) { return response.json(); } else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}: Could not update material`); }); } })
+        .then(data => { console.log('Update Success:', data); closeModal('editMaterialModal'); window.location.reload(); })
+        .catch(error => { console.error('Error:', error); alert(`Failed to update material: ${error.message}`); });
+});
+
+
+// --- AI Inventory Analysis Report Handling (Enhanced UI) ---
+const analyzeInventoryBtn = document.getElementById('analyzeInventoryBtn');
+const inventoryReportSection = document.getElementById('inventoryReportSection');
+const inventoryReportOutputContainer = document.getElementById('inventoryReportOutput'); // Container for cards
+const inventoryReportLoading = document.getElementById('inventoryReportLoading');
+const inventoryReportError = document.getElementById('inventoryReportError');
+const inventoryReportErrorMessage = document.getElementById('inventoryReportErrorMessage');
+
+analyzeInventoryBtn.addEventListener('click', () => {
+  inventoryReportSection.classList.remove('hidden');
+  inventoryReportLoading.classList.remove('hidden');
+  inventoryReportOutputContainer.classList.add('hidden'); // Hide container
+  inventoryReportError.classList.add('hidden');
+  inventoryReportOutputContainer.innerHTML = ''; // Clear previous cards
+  inventoryReportErrorMessage.textContent = '';
+
+  fetch('/api/inventory/report') // Correct endpoint
+    .then(response => {
+      if (!response.ok) {
+        return response.json().then(err => { throw new Error(err.detail || `HTTP error! status: ${response.status}`); })
+                         .catch(() => { throw new Error(`HTTP error! status: ${response.status}`); });
+      }
+      return response.json();
+    })
+    .then(data => {
+      const reportMarkdown = data.report || 'No report content received.';
+      renderInventoryReportSections(reportMarkdown); // Call rendering function
+      inventoryReportOutputContainer.classList.remove('hidden'); // Show container
+    })
+    .catch(error => {
+      console.error('Error fetching inventory analysis report:', error);
+      inventoryReportErrorMessage.textContent = error.message;
+      inventoryReportError.classList.remove('hidden');
+    })
+    .finally(() => {
+      inventoryReportLoading.classList.add('hidden');
+    });
+});
+
+// --- Function to Render Inventory Report Sections ---
+// (Parses Markdown and creates styled, collapsible cards)
+function renderInventoryReportSections(markdown) {
+    inventoryReportOutputContainer.innerHTML = ''; // Clear previous content
+
+    // Define the sections based on expected Markdown H2 headings (##)
+    const sectionHeadings = [
+        "Executive Summary",
+        "Consumption & Demand Analysis", // Matches agent output
+        "Optimization Suggestions",
+        "Risk Assessment",
+        "Price Context", // Matches agent output
+        "Report Error"
+    ];
+
+    // Split the markdown by H2 headings (## Heading)
+    const sections = markdown.split(/\n##\s+([^\n]+)/);
+
+    let currentContent = sections[0].trim(); // Content before the first heading
+
+    // Add timestamp/location if present
+    if (currentContent) {
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'mb-4 text-sm text-gray-600 italic';
+        if (typeof marked !== 'undefined') { infoDiv.innerHTML = marked.parse(currentContent); }
+        else { infoDiv.textContent = currentContent; }
+        inventoryReportOutputContainer.appendChild(infoDiv);
+    }
+
+    // Process matched sections
+    for (let i = 1; i < sections.length; i += 2) {
+        const heading = sections[i].trim();
+        const content = sections[i + 1] ? sections[i + 1].trim() : '';
+
+        // Determine if the section should be collapsible
+        const isCollapsible = heading !== "Executive Summary" && heading !== "Report Error";
+
+        // Create card container
+        const sectionCard = document.createElement('div');
+        sectionCard.className = 'bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-4';
+
+        // Create header (or summary for details element)
+        const headerElement = isCollapsible ? document.createElement('summary') : document.createElement('div');
+        headerElement.className = 'px-4 py-3 bg-gray-50 border-b border-gray-200 cursor-pointer font-semibold text-gray-700';
+        if (isCollapsible) {
+            headerElement.className += ' list-none flex justify-between items-center'; // Use flex for alignment
+            // Use span for heading text to allow icon placement
+            const headingSpan = document.createElement('span');
+            headingSpan.textContent = heading;
+            headerElement.appendChild(headingSpan);
+            // Add chevron icon for visual cue
+            const chevronSpan = document.createElement('span');
+            chevronSpan.className = 'text-gray-400 text-xs transition-transform transform details-marker'; // Class for potential rotation
+            chevronSpan.innerHTML = '▼ Expand'; // Use text or SVG icon
+            headerElement.appendChild(chevronSpan);
+
+        } else {
+             headerElement.textContent = heading;
+             // Style error header differently
+             if(heading === "Report Error") {
+                 headerElement.classList.remove('bg-gray-50', 'text-gray-700');
+                 headerElement.classList.add('bg-red-100', 'text-red-800');
+             }
+        }
+
+        // Create content div
+        const contentDiv = document.createElement('div');
+        // Apply prose styling for markdown rendering + padding
+        contentDiv.className = 'p-4 prose prose-sm max-w-none';
+
+        // Render markdown content using marked.js if available
+         if (typeof marked !== 'undefined') {
+            contentDiv.innerHTML = marked.parse(content);
+         } else {
+            contentDiv.textContent = content; // Fallback to plain text
+         }
+
+        // Assemble the card using <details> for collapsible sections
+        if (isCollapsible) {
+            const detailsElement = document.createElement('details');
+            // Optional: Add 'open' attribute to keep specific sections open by default
+            // if (heading === "Risk Assessment") { detailsElement.open = true; }
+            detailsElement.appendChild(headerElement);
+            detailsElement.appendChild(contentDiv);
+            sectionCard.appendChild(detailsElement);
+
+             // Optional: Add simple JS to change expand/collapse text/icon if needed
+            // detailsElement.addEventListener('toggle', () => {
+            //    const marker = headerElement.querySelector('.details-marker');
+            //    if (marker) { marker.textContent = detailsElement.open ? '▲ Collapse' : '▼ Expand'; }
+            // });
+
+        } else {
+             // Non-collapsible sections (Executive Summary, Error)
+             sectionCard.appendChild(headerElement);
+             sectionCard.appendChild(contentDiv);
+        }
+
+        inventoryReportOutputContainer.appendChild(sectionCard); // Add the card to the main container
+    }
+}
+
+</script>
+{% endblock %}
