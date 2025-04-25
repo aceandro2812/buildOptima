@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Construction Material Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+  <div class="px-4 py-6 sm:px-0">
+    {# --- Page Header & Action Buttons --- #}
+    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+      <h2 class="text-2xl font-semibold text-gray-900">Project Management</h2>
+       <div class="flex gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+            onclick="openModal('addProjectModal')"
+          >
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+             </svg>
+            Add New Project
+          </button>
+       </div>
+    </div>
+
+    {# --- Projects Table --- #}
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg">
+       <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="projectsTableBody" class="bg-white divide-y divide-gray-200">
+          {# Project rows will be injected here by JavaScript #}
+           <tr id="loadingRow">
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                    Loading projects...
+                </td>
+            </tr>
+             <tr id="noProjectsRow" class="hidden">
+                <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                    No projects found. Add a project to get started.
+                </td>
+            </tr>
+        </tbody>
+      </table>
+    </div>
+     {# --- End Projects Table --- #}
+
+    {# --- Add Project Modal --- #}
+     <div id="addProjectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+      <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white"> {# Wider modal #}
+        {# Modal Header #}
+        <div class="flex justify-between items-center pb-3">
+          <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Project</h3>
+          <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('addProjectModal')">
+             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+          </button>
+        </div>
+        {# Modal Body Form #}
+        <div class="mt-2 px-1 py-3">
+          <form id="addProjectForm">
+            <div class="mb-4">
+              <label for="add_name" class="block text-sm font-medium text-gray-700 mb-1">Project Name <span class="text-red-500">*</span></label>
+              <input type="text" id="add_name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+             <div class="mb-4">
+              <label for="add_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <input type="text" id="add_location" name="location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+            </div>
+             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                 <div>
+                    <label for="add_start_date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input type="date" id="add_start_date" name="start_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 </div>
+                 <div>
+                    <label for="add_end_date" class="block text-sm font-medium text-gray-700 mb-1">Planned End Date</label>
+                    <input type="date" id="add_end_date" name="end_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 </div>
+             </div>
+            <div class="mb-4">
+              <label for="add_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select id="add_status" name="status" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 <option value="Planning">Planning</option>
+                 <option value="In Progress">In Progress</option>
+                 <option value="Completed">Completed</option>
+                 <option value="On Hold">On Hold</option>
+              </select>
+            </div>
+            <div class="mb-4">
+              <label for="add_description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea id="add_description" name="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+            </div>
+            <div class="pt-4">
+              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Add Project
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+     {# --- End Add Project Modal --- #}
+
+    {# --- Edit Project Modal --- #}
+     <div id="editProjectModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white"> {# Wider modal #}
+            {# Modal Header #}
+            <div class="flex justify-between items-center pb-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Project</h3>
+            <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('editProjectModal')">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+            </button>
+            </div>
+            {# Modal Body Form #}
+            <div class="mt-2 px-1 py-3">
+            <form id="editProjectForm">
+                <input type="hidden" id="edit_project_id" name="project_id"> {# Hidden field for ID #}
+                <div class="mb-4">
+                <label for="edit_name" class="block text-sm font-medium text-gray-700 mb-1">Project Name <span class="text-red-500">*</span></label>
+                <input type="text" id="edit_name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-4">
+                <label for="edit_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <input type="text" id="edit_location" name="location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="edit_start_date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <input type="date" id="edit_start_date" name="start_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="edit_end_date" class="block text-sm font-medium text-gray-700 mb-1">Planned End Date</label>
+                        <input type="date" id="edit_end_date" name="end_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+                <div class="mb-4">
+                <label for="edit_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="edit_status" name="status" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    <option value="Planning">Planning</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="On Hold">On Hold</option>
+                </select>
+                </div>
+                <div class="mb-4">
+                <label for="edit_description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea id="edit_description" name="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                </div>
+                <div class="pt-4">
+                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Update Project
+                </button>
+                </div>
+            </form>
+            </div>
+        </div>
+     </div>
+     {# --- End Edit Project Modal --- #}
+
+</div>
+
+<script>
+// --- Constants ---
+const API_URL = '/api/projects';
+const addModal = document.getElementById('addProjectModal');
+const editModal = document.getElementById('editProjectModal');
+const addForm = document.getElementById('addProjectForm');
+const editForm = document.getElementById('editProjectForm');
+const tableBody = document.getElementById('projectsTableBody');
+const loadingRow = document.getElementById('loadingRow');
+const noProjectsRow = document.getElementById('noProjectsRow');
+
+// --- Modal Handling ---
+function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    modal.classList.add('hidden');
+    // Reset form inside the modal
+    const form = modal.querySelector('form');
+    if (form) form.reset();
+}
+
+// --- Fetch and Display Projects ---
+async function fetchProjects() {
+    loadingRow.style.display = ''; // Show loading row
+    noProjectsRow.classList.add('hidden'); // Hide no projects row
+    tableBody.innerHTML = ''; // Clear existing rows except template rows
+    tableBody.appendChild(loadingRow); // Re-add loading row
+    tableBody.appendChild(noProjectsRow); // Re-add no projects row template
+
+    try {
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const projects = await response.json();
+
+        loadingRow.style.display = 'none'; // Hide loading row
+
+        if (projects && projects.length > 0) {
+            noProjectsRow.classList.add('hidden'); // Hide no projects row
+            projects.forEach(project => {
+                const row = createProjectRow(project);
+                tableBody.appendChild(row);
+            });
+        } else {
+            noProjectsRow.classList.remove('hidden'); // Show no projects row
+        }
+    } catch (error) {
+        console.error('Error fetching projects:', error);
+        loadingRow.style.display = 'none';
+        noProjectsRow.classList.add('hidden');
+        // Display error in the table or using an alert
+        const errorRow = `<tr><td colspan="7" class="px-6 py-4 text-center text-red-500">Failed to load projects: ${error.message}</td></tr>`;
+        tableBody.innerHTML = errorRow; // Replace content with error
+    }
+}
+
+// --- Create Table Row ---
+function createProjectRow(project) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHTML(project.name)}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHTML(project.location || '-')}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHTML(project.status || '-')}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${project.start_date || '-'}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${project.end_date || '-'}</td>
+        <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate" title="${escapeHTML(project.description || '')}">${escapeHTML(project.description || '-')}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <button class="text-indigo-600 hover:text-indigo-900 mr-3" onclick="openEditModal(${project.id})">Edit</button>
+            <button class="text-red-600 hover:text-red-900" onclick="deleteProject(${project.id})">Delete</button>
+        </td>
+    `;
+    return row;
+}
+
+// --- Open Edit Modal ---
+async function openEditModal(projectId) {
+    try {
+        const response = await fetch(`${API_URL}/${projectId}`);
+        if (!response.ok) {
+             if (response.status === 404) { throw new Error('Project not found.'); }
+             throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const project = await response.json();
+
+        // Populate the edit form
+        document.getElementById('edit_project_id').value = project.id;
+        document.getElementById('edit_name').value = project.name || '';
+        document.getElementById('edit_location').value = project.location || '';
+        document.getElementById('edit_start_date').value = project.start_date || '';
+        document.getElementById('edit_end_date').value = project.end_date || '';
+        document.getElementById('edit_status').value = project.status || 'Planning';
+        document.getElementById('edit_description').value = project.description || '';
+
+        openModal('editProjectModal');
+    } catch (error) {
+        console.error('Error fetching project details:', error);
+        alert(`Error loading project details: ${error.message}`);
+    }
+}
+
+// --- Add Project Form Submission ---
+addForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(addForm);
+    const data = {};
+    // Convert empty strings to null for optional fields
+    formData.forEach((value, key) => {
+        data[key] = value.trim() === '' ? null : value.trim();
+    });
+
+    // Basic validation (name is required by schema)
+    if (!data.name) {
+        alert('Project Name is required.');
+        return;
+    }
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+            throw new Error(errorData.detail || `Error ${response.status}`);
+        }
+
+        closeModal('addProjectModal');
+        fetchProjects(); // Refresh the table
+    } catch (error) {
+        console.error('Error adding project:', error);
+        alert(`Failed to add project: ${error.message}`);
+    }
+});
+
+// --- Edit Project Form Submission ---
+editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const projectId = document.getElementById('edit_project_id').value;
+    const formData = new FormData(editForm);
+    const data = {};
+     // Convert empty strings to null for optional fields, exclude hidden ID
+    formData.forEach((value, key) => {
+        if (key !== 'project_id') {
+             data[key] = value.trim() === '' ? null : value.trim();
+        }
+    });
+
+     // Basic validation (name is required by schema if provided)
+    if (data.name === null) { // Check if name field was cleared
+        alert('Project Name cannot be empty.');
+        return;
+    }
+     // Remove name from payload if it wasn't changed (or if empty)
+     // This prevents sending an empty name if the user cleared it accidentally
+     // Alternatively, handle this logic based on comparison with original data if needed
+     if (data.name === '') data.name = null;
+
+
+    try {
+        const response = await fetch(`${API_URL}/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+            throw new Error(errorData.detail || `Error ${response.status}`);
+        }
+
+        closeModal('editProjectModal');
+        fetchProjects(); // Refresh the table
+    } catch (error) {
+        console.error('Error updating project:', error);
+        alert(`Failed to update project: ${error.message}`);
+    }
+});
+
+// --- Delete Project ---
+async function deleteProject(projectId) {
+    if (!confirm(`Are you sure you want to delete project ID ${projectId}? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/${projectId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+             // Handle 404 specifically
+             if (response.status === 404) { throw new Error('Project not found.'); }
+             // Handle other errors (like 409 Conflict if implemented)
+             const errorData = await response.json().catch(() => ({ detail: `HTTP error ${response.status}` }));
+             throw new Error(errorData.detail || `Error ${response.status}`);
+        }
+        // No need to parse JSON for 204 No Content
+        fetchProjects(); // Refresh the table on successful deletion
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        alert(`Failed to delete project: ${error.message}`);
+    }
+}
+
+// --- Utility Function ---
+function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, function (match) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[match];
+    });
+}
+
+
+// --- Initial Load ---
+document.addEventListener('DOMContentLoaded', fetchProjects);
+
+</script>
+{% endblock %}

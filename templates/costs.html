@@ -5,26 +5,30 @@
 {% block content %}
 <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
     <div class="px-4 py-6 sm:px-0">
-        <!-- Header Section -->
-        <div class="mb-6 flex justify-between items-center">
+        <div class="mb-6 flex flex-wrap justify-between items-center gap-4">
             <h2 class="text-2xl font-semibold text-gray-900">Material Costs</h2>
-            <button type="button" 
-                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    data-bs-toggle="modal" 
-                    data-bs-target="#addCostModal">
+             {# --- Updated Button to use JavaScript openModal --- #}
+            <button type="button"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+                    onclick="openModal('addCostModal')">
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                 </svg>
                 Add Cost Record
             </button>
+             {# --- End Updated Button --- #}
         </div>
 
-        <!-- Table Section -->
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty Purchased</th> {# Right align #}
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th> {# Right align #}
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th> {# Right align #}
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                         </tr>
@@ -32,108 +36,165 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for record in cost_data %}
                         <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ record.material.material_name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${{ "%.2f"|format(record.total_cost) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.supplier.name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_recorded.strftime('%Y-%m-%d') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.notes }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ record.material.material_name if record.material else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.supplier.name if record.supplier else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ record.quantity_purchased }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${{ "%.2f"|format(record.unit_price) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${{ "%.2f"|format(record.total_cost) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_recorded.strftime('%Y-%m-%d') if record.date_recorded else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.notes or '-' }}</td>
                         </tr>
                         {% endfor %}
+                         {% if not cost_data %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">No cost records found.</td>
+                        </tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- Add Cost Modal -->
-        <div class="modal fade" id="addCostModal" tabindex="-1" aria-labelledby="addCostModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="addCostModalLabel">Add Cost Record</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="addCostForm" class="space-y-4">
+        {# --- Updated Add Cost Modal using Tailwind --- #}
+        <div id="addCostModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+             <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-lg shadow-lg rounded-md bg-white"> {# Wider modal #}
+                 {# Modal Header #}
+                <div class="flex justify-between items-center pb-3">
+                    <h3 class="modal-title text-lg leading-6 font-medium text-gray-900" id="addCostModalLabel">Add Cost Record</h3>
+                     <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('addCostModal')">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+                    </button>
+                </div>
+                 {# Modal Body Form #}
+                <div class="mt-2 px-1 py-3">
+                    <form id="addCostForm" class="space-y-4">
+                        {# Material Dropdown #}
+                        <div>
+                            <label for="material_id" class="block text-sm font-medium text-gray-700 mb-1">Material <span class="text-red-500">*</span></label>
+                            <select id="material_id" name="material_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                 <option value="">Select Material</option>
+                                {% for material in materials %}
+                                <option value="{{ material.id }}">{{ material.material_name }} ({{ material.unit }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {# Supplier Dropdown #}
+                         <div>
+                            <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier <span class="text-red-500">*</span></label>
+                            <select id="supplier_id" name="supplier_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                 <option value="">Select Supplier</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {# Quantity & Unit Price #}
+                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label for="material_id" class="block text-sm font-medium text-gray-700">Material</label>
-                                <select id="material_id" name="material_id" required class="mt-1 block w-full rounded-md">
-                                    {% for material in materials %}
-                                    <option value="{{ material.id }}">{{ material.material_name }}</option>
-                                    {% endfor %}
-                                </select>
+                                <label for="quantity_purchased" class="block text-sm font-medium text-gray-700 mb-1">Quantity Purchased <span class="text-red-500">*</span></label>
+                                <input type="number" id="quantity_purchased" name="quantity_purchased" step="0.01" required min="0.01" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                             </div>
-                            
-                            <div>
-                                <label for="unit_price" class="block text-sm font-medium text-gray-700">Unit Price ($)</label>
-                                <input type="number" id="unit_price" name="unit_price" step="0.01" required class="mt-1 block w-full rounded-md">
+                             <div>
+                                <label for="unit_price" class="block text-sm font-medium text-gray-700 mb-1">Unit Price ($) <span class="text-red-500">*</span></label>
+                                <input type="number" id="unit_price" name="unit_price" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                             </div>
-                            
-                            <div>
-                                <label for="quantity_purchased" class="block text-sm font-medium text-gray-700">Quantity Purchased</label>
-                                <input type="number" id="quantity_purchased" name="quantity_purchased" step="0.01" required class="mt-1 block w-full rounded-md">
-                            </div>
-                            
-                            <div>
-                                <label for="date_recorded" class="block text-sm font-medium text-gray-700">Date</label>
-                                <input type="date" id="date_recorded" name="date_recorded" required class="mt-1 block w-full rounded-md">
-                            </div>
-                            
-                            <div>
-                                <label for="notes" class="block text-sm font-medium text-gray-700">Notes</label>
-                                <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-md"></textarea>
-                            </div>
-                            
-                            <div class="mt-5">
-                                <button type="submit"
-                                    class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    Add Record
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                         </div>
+                         {# Date Recorded #}
+                        <div>
+                            <label for="date_recorded" class="block text-sm font-medium text-gray-700 mb-1">Date Recorded (Optional)</label>
+                            <input type="date" id="date_recorded" name="date_recorded" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                             <p class="mt-1 text-xs text-gray-500">Defaults to today if left blank.</p>
+                        </div>
+                         {# Notes #}
+                        <div>
+                            <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                            <textarea id="notes" name="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+                        </div>
+                         {# Submit Button #}
+                        <div class="pt-4">
+                            <button type="submit"
+                                class="w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Add Record
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
+         {# --- End Updated Modal --- #}
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var costModal = new bootstrap.Modal(document.getElementById('addCostModal'));
+// --- Modal Handling ---
+function openModal(modalId) {
+  document.getElementById(modalId).classList.remove('hidden');
+}
+function closeModal(modalId) {
+  const modal = document.getElementById(modalId);
+  modal.classList.add('hidden');
+  const form = modal.querySelector('form');
+  if (form) form.reset(); // Reset form on close
+}
 
-    document.getElementById('addCostForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        const data = {};
+// --- Add Cost Form Submission ---
+document.getElementById('addCostForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {};
+    let isValid = true;
 
-        formData.forEach((value, key) => {
-            if (key === 'material_id' || key === 'supplier_id') {
-                data[key] = parseInt(value);
-            } else if (key === 'unit_price' || key === 'quantity_purchased') {
-                data[key] = parseFloat(value);
-            } else {
-                data[key] = value;
-            }
-        });
+    formData.forEach((value, key) => {
+        const trimmedValue = value.trim();
+        // Convert numeric fields, handle empty strings/nulls
+        if (key === 'material_id' || key === 'supplier_id') {
+            data[key] = trimmedValue === '' ? null : parseInt(trimmedValue);
+            if (data[key] === null) isValid = false; // These IDs are required
+        } else if (key === 'unit_price' || key === 'quantity_purchased') {
+            data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+             // Check if required and positive (allow 0 for unit price?)
+            if (key === 'quantity_purchased' && (data[key] === null || data[key] <= 0)) isValid = false;
+            if (key === 'unit_price' && (data[key] === null || data[key] < 0)) isValid = false; // Allow 0 price?
+        } else if (key === 'date_recorded' && trimmedValue === '') {
+             data[key] = null; // Explicitly set date to null if empty
+        }
+         else {
+            data[key] = trimmedValue;
+        }
+    });
+    data.notes = data.notes || null; // Ensure notes is null if empty
 
-        fetch('/api/costs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(error => {
-                    throw new Error(error.detail || 'Failed to add cost record');
-                });
-            }
-            return response.json();
-        }).then(() => {
-            costModal.hide();
-            window.location.reload();
-        }).catch(error => {
-            alert(error.message);
-        });
+     if (!isValid) {
+        alert('Please select material, supplier, and enter positive quantity & non-negative unit price.');
+        return;
+    }
+
+    // Send data to the backend
+    fetch('/api/costs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) {
+            // Try to parse error detail from backend
+            return response.json().then(error => {
+                throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+            }).catch(() => { // Fallback if error response isn't JSON
+                 throw new Error(`HTTP error! status: ${response.status}`);
+            });
+        }
+        return response.json(); // Parse successful response
+    })
+    .then(() => {
+        closeModal('addCostModal');
+        window.location.reload(); // Refresh page
+    })
+    .catch(error => {
+        console.error('Error saving cost record:', error);
+        alert(`Failed to add cost record: ${error.message}`);
     });
 });
 </script>
 {% endblock %}
+

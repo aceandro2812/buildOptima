@@ -3,91 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <title>{% block title %}BuildOptima{% endblock %}</title> {# Default title #}
+    {# Tailwind CSS via CDN #}
     <script src="https://cdn.tailwindcss.com"></script>
+    {# Include Marked.js for Markdown rendering in reports #}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    {# Link to custom styles (if any) #}
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
+    {# Add Tailwind Typography for prose styling #}
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: { // Extend the default theme if needed
+                }
+            },
+            plugins: [
+                require('@tailwindcss/typography'), // Require the typography plugin
+                // require('@tailwindcss/forms'), // Uncomment if using form styling plugin
+            ],
+        }
+    </script>
+    {# Load the actual typography plugin script AFTER the config #}
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+
+
+    <style>
+        /* Simple style for details marker */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; } /* Chrome/Safari */
+        details > summary::marker { display: none; } /* Firefox */
+
+        /* Style for expand/collapse text */
+         details summary .details-marker::before {
+             content: '▼ Expand'; /* Default text */
+             font-size: 0.75rem; /* text-xs */
+             color: #9ca3af; /* text-gray-400 */
+             margin-left: 0.5rem; /* ml-2 */
+         }
+        details[open] summary .details-marker::before {
+             content: '▲ Collapse'; /* Change text */
+         }
+
+    </style>
+
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen">
-    <nav class="bg-white shadow-md">
+<body class="bg-gray-100 flex flex-col min-h-screen font-sans"> {# Use a common font #}
+    <nav class="bg-white shadow-md sticky top-0 z-40"> {# Make nav sticky #}
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <div class="flex-shrink-0 flex items-center">
-                        <svg class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        {# Simple Logo Placeholder #}
+                        <svg class="h-8 w-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                         </svg>
                         <span class="ml-2 text-xl font-semibold text-gray-800">BuildOptima</span>
                     </div>
                 </div>
-                <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                    <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Home</a>
-                    <a href="/materials" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Materials</a>
-                    <a href="/suppliers" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Suppliers</a>
-                    <a href="/consumption" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Consumption</a>
-                    <a href="/costs" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Costs</a>
-                    <a href="/waste" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Waste</a>
-
+                {# Desktop Navigation #}
+                <div class="hidden sm:ml-6 sm:flex sm:space-x-4 sm:items-center"> {# Use space-x for spacing #}
+                    <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50" aria-current="page">Home</a>
+                    <a href="/materials" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Materials</a>
+                    <a href="/suppliers" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Suppliers</a>
+                    <a href="/projects" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Projects</a>
+                    <a href="/consumption" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Consumption</a>
+                    <a href="/costs" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Costs</a>
+                    <a href="/waste" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Waste</a>
                 </div>
+                {# Mobile Menu Button #}
                 <div class="-mr-2 flex items-center sm:hidden">
-                    <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary" aria-controls="mobile-menu" aria-expanded="false">
+                    <button type="button" id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" aria-controls="mobile-menu" aria-expanded="false">
                         <span class="sr-only">Open main menu</span>
+                        {# Hamburger Icon (visible by default) #}
                         <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        {# Close Icon (hidden by default) #}
+                         <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
             </div>
         </div>
-        <div class="sm:hidden" id="mobile-menu">
+        {# Mobile Menu Panel #}
+        <div class="sm:hidden hidden" id="mobile-menu"> {# Start hidden #}
             <div class="px-2 pt-2 pb-3 space-y-1">
-                <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Home</a>
-                <a href="/materials" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Materials</a>
-                <a href="/suppliers" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Suppliers</a>
-                <a href="/consumption" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Consumption</a>
-                <a href="/costs" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Costs</a>
-                <a href="/waste" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary hover:bg-gray-50">Waste</a>
-                
+                <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50" aria-current="page">Home</a>
+                <a href="/materials" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Materials</a>
+                <a href="/suppliers" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Suppliers</a>
+                <a href="/projects" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Projects</a>
+                <a href="/consumption" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Consumption</a>
+                <a href="/costs" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Costs</a>
+                <a href="/waste" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Waste</a>
             </div>
         </div>
     </nav>
 
     <main class="flex-grow">
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <div class="px-4 py-6 sm:px-0">
-                {% block content %}{% endblock %}
-            </div>
-        </div>
+         {# Main content block will be filled by child templates #}
+         {% block content %}{% endblock %}
     </main>
 
-    <footer class="bg-white shadow-md mt-8">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+    <footer class="bg-white shadow-md mt-8 py-4"> {# Added padding #}
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <p class="text-center text-gray-500 text-sm">
-                © 2024 Construction Material Manager. All rights reserved.
+                {# --- REMOVED DYNAMIC YEAR --- #}
+                © {% block year %}2024{% endblock %} BuildOptima. All rights reserved.
+                {# --- END REMOVAL --- #}
             </p>
         </div>
     </footer>
 
     <script>
-        // Highlight active nav item
+        // --- Active Nav Link Highlighting ---
         document.addEventListener('DOMContentLoaded', function() {
             const currentPath = window.location.pathname;
-            document.querySelectorAll('a').forEach(link => {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('text-primary', 'bg-gray-50');
+            document.querySelectorAll('nav a').forEach(link => {
+                if (link.getAttribute('href') === currentPath || (currentPath === '/' && link.getAttribute('href') === '/')) {
+                    link.classList.add('bg-gray-100', 'text-blue-700');
+                    link.setAttribute('aria-current', 'page');
+                } else {
+                    link.classList.remove('bg-gray-100', 'text-blue-700');
+                    link.removeAttribute('aria-current');
                 }
             });
         });
 
-        // Mobile menu toggle
-        const mobileMenuButton = document.querySelector('button[aria-controls="mobile-menu"]');
+        // --- Mobile Menu Toggle ---
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
+        // Get both icons inside the button
+        const openIcon = mobileMenuButton.querySelector('svg:nth-of-type(1)');
+        const closeIcon = mobileMenuButton.querySelector('svg:nth-of-type(2)');
+
         mobileMenuButton.addEventListener('click', () => {
             const expanded = mobileMenuButton.getAttribute('aria-expanded') === 'true' || false;
             mobileMenuButton.setAttribute('aria-expanded', !expanded);
-            mobileMenu.classList.toggle('hidden');
+            mobileMenu.classList.toggle('hidden'); // Toggle menu visibility
+            // Toggle icon visibility
+            openIcon.classList.toggle('hidden');
+            closeIcon.classList.toggle('hidden');
         });
+
+         // --- Details/Summary Marker Text Toggle ---
+         document.querySelectorAll('details').forEach(detail => {
+            const summary = detail.querySelector('summary');
+            if (summary) {
+                const marker = summary.querySelector('.details-marker');
+                if (marker) {
+                    // Set initial text
+                    marker.textContent = detail.open ? '▲ Collapse' : '▼ Expand';
+                    // Add event listener
+                    detail.addEventListener('toggle', () => {
+                        marker.textContent = detail.open ? '▲ Collapse' : '▼ Expand';
+                    });
+                }
+            }
+         });
+
     </script>
+     {# Allow child templates to add specific scripts #}
+     {% block scripts %}{% endblock %}
 </body>
 </html>
