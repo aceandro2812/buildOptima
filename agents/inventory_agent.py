@@ -1,4 +1,4 @@
-# agents/inventory_agent.py (Absolute Imports, Pydantic V2, Natural Language Prompt, Syntax Fix)
+# agents/inventory_agent.py (Absolute Imports, Pydantic V2, DDG Search)
 
 import os
 import json
@@ -114,6 +114,7 @@ def get_cost_history(days_limit: int = 180) -> List[CostRecord]:
     except Exception as e: logging.error(f"Error fetching cost data: {e}", exc_info=True)
     finally: db.close(); return result
 
+# Initialize the DuckDuckGo Search tool instance
 search_tool = DuckDuckGoSearchRun()
 
 # --- Agent State Definition ---
@@ -124,6 +125,7 @@ class InventoryAnalysisState(TypedDict):
 
 # --- Agent Node Functions ---
 def fetch_inventory_data_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
+    # ... (fetch_inventory_data_node remains the same) ...
     logging.info("--- Node: Fetching Inventory Data ---")
     try:
         inventory = get_inventory_data.invoke({})
@@ -141,7 +143,9 @@ def fetch_inventory_data_node(state: InventoryAnalysisState) -> InventoryAnalysi
         state['messages'] = [SystemMessage(content=f"Error fetching data: {e}")]
     return state
 
+
 def analyze_consumption_demand_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
+    # ... (analyze_consumption_demand_node remains the same) ...
     logging.info("--- Node: Analyzing Consumption & Demand ---")
     if state.get('error_message'): return state
     inventory = state.get('inventory_data', [])
@@ -154,7 +158,7 @@ def analyze_consumption_demand_node(state: InventoryAnalysisState) -> InventoryA
     if not inventory: logging.warning("Inventory data is missing, consumption analysis might be less useful.")
     consumption_summary_for_llm = [ f"Material ID {c.material_id} ({c.material_name}): Used {c.quantity_used} on {c.date_used[:10]}" for c in consumption[:50] ]
     inventory_summary_for_llm = [ f"Material ID {i.id} ({i.material_name}): Current Qty {i.quantity} {i.unit}" for i in inventory[:20] ]
-    prompt = f""" You are an inventory analyst for a construction site in Thane, India. Analyze the provided recent consumption history (last 90 days) and current inventory levels. Identify materials with high consumption rates. Estimate the average monthly consumption for the top 3-5 most consumed materials based on the 90-day data. Highlight any materials showing significant recent spikes or drops in usage. Consumption Data Preview (up to 50 records):\n{json.dumps(consumption_summary_for_llm, indent=2)}\nTotal Valid Consumption Records Analyzed (last 90d): {len(consumption)}\n Current Inventory Preview (up to 20 items):\n{json.dumps(inventory_summary_for_llm, indent=2)}\nTotal Inventory Items: {len(inventory)}\n Provide a concise analysis focusing on consumption trends and estimated monthly demand for key items. """ # Keep prompt concise
+    prompt = f""" You are an inventory analyst for a construction site in Thane, India. Analyze the provided recent consumption history (last 90 days) and current inventory levels. Identify materials with high consumption rates. Estimate the average monthly consumption for the top 3-5 most consumed materials based on the 90-day data. Highlight any materials showing significant recent spikes or drops in usage. Consumption Data Preview (up to 50 records):\n{json.dumps(consumption_summary_for_llm, indent=2)}\nTotal Valid Consumption Records Analyzed (last 90d): {len(consumption)}\n Current Inventory Preview (up to 20 items):\n{json.dumps(inventory_summary_for_llm, indent=2)}\nTotal Inventory Items: {len(inventory)}\n Provide a concise analysis focusing on consumption trends and estimated monthly demand for key items. """
     messages = [SystemMessage(content=prompt)]
     try:
         response = llm.invoke(messages); analysis = response.content
@@ -166,7 +170,10 @@ def analyze_consumption_demand_node(state: InventoryAnalysisState) -> InventoryA
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during consumption analysis: {e}")]
     return state
 
+
+# --- Updated optimize_inventory_node ---
 def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
+    """Suggests optimized reorder points or order quantities, incorporating real web search for price context."""
     logging.info("--- Node: Optimizing Inventory Levels ---")
     if state.get('error_message'): return state
     if not state.get('consumption_analysis') or "Insufficient data" in state.get('consumption_analysis', "") or "No valid consumption records" in state.get('consumption_analysis', "") :
@@ -180,29 +187,73 @@ def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisS
          logging.warning(suggestions); state['optimization_suggestions'] = suggestions
          if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
          state['messages'] = state['messages'] + [SystemMessage(content=suggestions)]; return state
+
     inventory_details = [ f"ID {i.id} ({i.material_name}): Qty={i.quantity}, Unit={i.unit}, ReorderPt={i.reorder_point}, SupplierID={i.supplier_id}" for i in inventory ]
     supplier_details = [ f"ID {s.id} ({s.name}): LeadTime={s.lead_time_days}d, Reliability={s.reliability_rating}/5" for s in suppliers ]
-    top_material_search_query = None; price_context = "No current price search performed."
-    try: # Attempt to parse material for price search
+    top_material_search_query = None
+    price_context = "No current price search performed or material not identified." # Default message
+
+    # Attempt to parse top consumed material from analysis for search query
+    try:
         lines = consumption_analysis.split('\n')
         for line in lines:
              match = None
              if "average monthly consumption" in line.lower() and ":" in line:
                  parts = line.split('('); material_name_candidate = parts[1].split(')')[0].strip() if len(parts) > 1 else None
                  if material_name_candidate and not material_name_candidate.isdigit(): match = material_name_candidate
-                 # *** SYNTAX FIX APPLIED HERE ***
                  if not match:
                      material_name_candidate = line.split(':')[0].strip()
                      if material_name_candidate and not material_name_candidate.isdigit():
                          match = material_name_candidate
-                 # *** END SYNTAX FIX ***
-                 if match: top_material_search_query = f"current price per {match} unit for construction in Thane India"; logging.info(f"Identified potential top material for search: {match}"); break
-    except Exception as parse_error: logging.warning(f"Could not parse top material from consumption analysis for price search: {parse_error}")
+                 if match:
+                     # Refine query for better price results
+                     top_material_search_query = f"price per kg OR price per cubic meter OR price per piece for construction material {match} in Thane India market"
+                     logging.info(f"Identified potential top material for search: {match}")
+                     break
+    except Exception as parse_error:
+        logging.warning(f"Could not parse top material from consumption analysis for price search: {parse_error}")
+
+    # *** Perform Actual DuckDuckGo Search ***
     if top_material_search_query:
         logging.info(f"Performing DDG search for: {top_material_search_query}")
-        try: price_search_results = search_tool.run(top_material_search_query); price_context = f"Recent price context search for '{top_material_search_query}':\n{price_search_results}"; logging.info("DDG search completed."); state['price_trends'] = price_context
-        except Exception as e: logging.error(f"DuckDuckGo search failed: {e}", exc_info=True); price_context = f"Failed to perform price search for {top_material_search_query}."; state['price_trends'] = price_context
-    prompt = f""" You are an inventory optimization specialist for a construction site in Thane. Based on the consumption analysis, current inventory, and supplier lead times, suggest inventory adjustments. Consumption Analysis Highlights:\n{consumption_analysis}\n Current Inventory:\n{json.dumps(inventory_details, indent=2)}\n Supplier Lead Times & Reliability:\n{json.dumps(supplier_details, indent=2)}\n {price_context}\n For materials identified as high-consumption or nearing reorder points: 1. Calculate the 'safety stock' needed (e.g., average daily consumption * lead time * reliability factor). Average daily consumption can be estimated from monthly consumption / 30. Use a reliability factor (e.g., 1.0 for 5/5 rating, 1.2 for 4/5, 1.5 for <4/5). If lead time or reliability is missing, state that calculation is approximate. 2. Recommend adjustments to the 'reorder_point' if the current one seems too low based on safety stock + lead time demand (demand during lead time = avg daily consumption * lead time). 3. Suggest optimal 'order quantity' considering estimated monthly demand, current stock, and maybe recent price trends (if available). Aim for roughly 1-1.5 months of stock after ordering. 4. Flag items significantly below the *calculated* reorder point (current qty < reorder point). Provide concise, actionable suggestions for 3-5 key materials. Ensure calculations are shown or explained. """ # Keep prompt concise
+        try:
+            # Use the initialized search_tool directly
+            # The .run() method takes the query string as input
+            price_search_results = search_tool.run(top_material_search_query)
+            # Limit result length for context window
+            price_context = f"Recent price context search results for '{match}' in Thane (Top results):\n{price_search_results[:1000]}..." # Limit to 1000 chars
+            logging.info(f"DDG search completed for {match}.")
+            state['price_trends'] = price_context # Store search result/summary
+        except Exception as e:
+            logging.error(f"DuckDuckGo search failed: {e}", exc_info=True)
+            price_context = f"Failed to perform price search for {match}. Error: {e}"
+            state['price_trends'] = price_context # Store error message
+    # *** End Search Logic ***
+
+    # Prepare prompt for LLM, including the actual price context
+    prompt = f"""
+You are an inventory optimization specialist for a construction site in Thane.
+Based on the consumption analysis, current inventory, supplier lead times, and recent price context (if available), suggest inventory adjustments.
+
+Consumption Analysis Highlights:
+{consumption_analysis}
+
+Current Inventory:
+{json.dumps(inventory_details, indent=2)}
+
+Supplier Lead Times & Reliability:
+{json.dumps(supplier_details, indent=2)}
+
+{price_context}
+
+For materials identified as high-consumption or nearing reorder points:
+1. Calculate the 'safety stock' needed (e.g., average daily consumption * lead time * reliability factor). Average daily consumption can be estimated from monthly consumption / 30. Use a reliability factor (e.g., 1.0 for 5/5 rating, 1.2 for 4/5, 1.5 for <4/5). If lead time or reliability is missing, state that calculation is approximate.
+2. Recommend adjustments to the 'reorder_point' if the current one seems too low based on safety stock + lead time demand (demand during lead time = avg daily consumption * lead time).
+3. Suggest optimal 'order quantity' considering estimated monthly demand, current stock, and maybe recent price trends (if available - mention if prices seem high/low based on search). Aim for roughly 1-1.5 months of stock after ordering.
+4. Flag items significantly below the *calculated* reorder point (current qty < reorder point).
+
+Provide concise, actionable suggestions for 3-5 key materials. Ensure calculations are shown or explained. Write in natural, professional language.
+"""
     messages = [SystemMessage(content=prompt)]
     try:
         response = llm.invoke(messages); suggestions = response.content
@@ -213,8 +264,11 @@ def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisS
         state['error_message'] = f"LLM error during optimization: {e}"; state['optimization_suggestions'] = "Error during optimization."
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during optimization: {e}")]
     return state
+# --- End Updated optimize_inventory_node ---
+
 
 def assess_risks_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
+    # ... (assess_risks_node remains the same) ...
     logging.info("--- Node: Assessing Inventory Risks ---")
     if state.get('error_message'): return state
     if not state.get('optimization_suggestions') or "Skipping optimization" in state.get('optimization_suggestions',''):
@@ -223,7 +277,7 @@ def assess_risks_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
         if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
         state['messages'] = state['messages'] + [SystemMessage(content=assessment)]; return state
     optimization_suggestions = state['optimization_suggestions']
-    prompt = f""" Based on the inventory optimization suggestions provided below, explicitly list any materials flagged as being: 1. At immediate risk of stockout (significantly below calculated reorder point). 2. Potentially overstocked (e.g., having much more than 2-3 months of estimated demand on hand). Optimization Suggestions:\n{optimization_suggestions}\n List the risks clearly. If no specific risks were flagged in the suggestions, state "No immediate risks identified based on the analysis." """ # Keep prompt concise
+    prompt = f""" Based on the inventory optimization suggestions provided below, explicitly list any materials flagged as being: 1. At immediate risk of stockout (significantly below calculated reorder point). 2. Potentially overstocked (e.g., having much more than 2-3 months of estimated demand on hand). Optimization Suggestions:\n{optimization_suggestions}\n List the risks clearly using natural language and bullet points. If no specific risks were flagged in the suggestions, state "No immediate risks identified based on the analysis." """
     messages = [SystemMessage(content=prompt)]
     try:
         response = llm.invoke(messages); assessment = response.content
@@ -235,8 +289,9 @@ def assess_risks_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during risk assessment: {e}")]
     return state
 
+
 def compile_inventory_report_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
-    """Compiles the final inventory analysis report with a summary and structured sections, using natural language."""
+    # ... (compile_inventory_report_node remains the same - already uses natural language prompt) ...
     logging.info("--- Node: Compiling Inventory Report ---")
     if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
     if state.get('error_message') and not state.get('final_report'):
@@ -259,7 +314,9 @@ def compile_inventory_report_node(state: InventoryAnalysisState) -> InventoryAna
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during inventory report compilation: {e}")]
     return state
 
+
 # --- Build the Graph ---
+# ... (Graph definition remains the same) ...
 logging.info("Building the Inventory Agent workflow...")
 workflow = StateGraph(InventoryAnalysisState)
 workflow.add_node("fetch_data", fetch_inventory_data_node)
@@ -280,7 +337,9 @@ except Exception as e:
     logging.error(f"Failed to compile Inventory Agent workflow: {e}")
     raise
 
+
 # --- Function to Invoke the Agent ---
+# ... (Invocation function remains the same) ...
 def run_inventory_analysis_agent() -> str:
     logging.info("Starting Inventory Analysis Agent workflow...")
     initial_state = InventoryAnalysisState( inventory_data=[], consumption_data=[], supplier_data=[], cost_data=None, messages=[] )
@@ -295,7 +354,9 @@ def run_inventory_analysis_agent() -> str:
         logging.error(f"Exception during inventory agent graph invocation: {e}", exc_info=True)
         return f"Critical Error during inventory agent execution: {e}"
 
+
 # --- Direct Execution Example ---
+# ... (Direct execution block remains the same) ...
 if __name__ == "__main__":
     print("Running Inventory Agent Standalone Test...")
     report = run_inventory_analysis_agent()
