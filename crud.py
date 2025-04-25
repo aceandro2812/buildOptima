@@ -233,10 +233,12 @@ def update_inventory_quantity(db: Session, item_id: int, quantity: float) -> Opt
                 Alert.is_active == True
             ).first()
             if not existing_alert:
+                # Ensure project name is available for the alert message
+                project_name = db_item.project.name if db_item.project else "Unknown Project"
                 create_alert(db, AlertCreate(
                     material_id=item_id,
                     alert_type="low_stock",
-                    message=f"Material {db_item.material_name} (ID: {item_id}) in Project '{db_item.project.name}' is below reorder point ({db_item.reorder_point}). Current quantity: {quantity}."
+                    message=f"Material {db_item.material_name} (ID: {item_id}) in Project '{project_name}' is below reorder point ({db_item.reorder_point}). Current quantity: {quantity}."
                 ))
         # Commit the quantity change here (or rely on caller to commit if part of larger transaction)
         # For simplicity here, we commit.
@@ -353,9 +355,8 @@ def create_consumption_record(db: Session, consumption: ConsumptionCreate) -> Co
     )
     db.add(db_consumption)
 
-    # Update inventory quantity (this function handles commit and alert check)
+    # Update inventory quantity
     new_quantity = inventory_item.quantity - consumption.quantity_used
-    # We need to commit both together, so call internal logic of update_inventory_quantity
     inventory_item.quantity = new_quantity
     inventory_item.last_updated = datetime.utcnow()
 
@@ -454,7 +455,7 @@ def get_waste_record(db: Session, waste_id: int) -> Optional[Waste]:
     ).filter(Waste.id == waste_id).first()
 
 
-# --- Cost CRUD Operations ---
+# --- Cost CRUD Operations (FIXED) ---
 def get_cost_data(db: Session) -> List[Cost]:
     """Gets all cost data, eager loading relationships."""
     return db.query(Cost).options(
@@ -466,22 +467,69 @@ def create_cost_record(db: Session, cost: CostCreate) -> Cost:
     """Creates a cost record."""
     cost_data = cost.model_dump()
     # Validate foreign keys
-    if not get_inventory_item(db, cost.material_id): # Note: This checks across all projects, might need refinement if costs are project-specific
+    # Use the specific inventory item getter to ensure relationships are loaded if needed later
+    inventory_item = get_inventory_item(db, cost.material_id)
+    if not inventory_item:
          raise ValueError(f"Material with ID {cost.material_id} not found in inventory.")
     if cost.supplier_id and not get_supplier_by_id(db, cost.supplier_id):
          raise ValueError(f"Supplier with ID {cost.supplier_id} not found.")
 
-    # Calculate total_cost if not provided
-    cost_data.setdefault("total_cost", cost_data["unit_price"] * cost_data["quantity_purchased"])
+    # --- FIX START: Calculate total_cost correctly ---
+    # Check if total_cost is None or missing, and calculate if necessary
+    if cost_data.get("total_cost") is None:
+        unit_price = cost_data.get("unit_price")
+        quantity_purchased = cost_data.get("quantity_purchased")
+
+        if unit_price is not None and quantity_purchased is not None:
+             cost_data["total_cost"] = unit_price * quantity_purchased
+        else:
+             # This case should ideally be prevented by Pydantic validation,
+             # but added for robustness.
+             missing_fields = []
+             if unit_price is None: missing_fields.append("unit_price")
+             if quantity_purchased is None: missing_fields.append("quantity_purchased")
+             raise ValueError(f"Cannot calculate total_cost: Required fields missing: {', '.join(missing_fields)}")
+    # Ensure total_cost is non-negative (Pydantic schema already does ge=0)
+    elif cost_data["total_cost"] < 0:
+         raise ValueError("Total cost cannot be negative.")
+    # --- FIX END ---
+
+    # Set default date if not provided
+    # Use setdefault for date as it's truly optional in the payload
     cost_data.setdefault("date_recorded", datetime.utcnow())
 
-    db_cost = Cost(**cost_data)
-    db.add(db_cost)
-    db.commit()
-    db.refresh(db_cost)
-    db.refresh(db_cost, attribute_names=['material', 'supplier'])
-    return db_cost
+    # Ensure date_recorded is a datetime object if provided (Pydantic handles this)
+    if isinstance(cost_data.get("date_recorded"), str):
+        try:
+            # Pydantic v2 usually handles date parsing, but belt-and-suspenders
+            from dateutil import parser
+            cost_data["date_recorded"] = parser.parse(cost_data["date_recorded"])
+        except (ImportError, ValueError):
+             # Fallback or raise error if parsing fails and date is required
+             print(f"Warning: Could not parse date string '{cost_data.get('date_recorded')}'. Using current UTC time.")
+             cost_data["date_recorded"] = datetime.utcnow()
 
+
+    db_cost = Cost(**cost_data) # Now total_cost should have a valid float value
+    db.add(db_cost)
+    try:
+        db.commit() # Commit should now succeed
+        db.refresh(db_cost)
+        # Eagerly load relationships for the return object if needed by the API response
+        db.refresh(db_cost, attribute_names=['material', 'supplier'])
+        return db_cost
+    except IntegrityError as e:
+        db.rollback()
+        # Provide more context if the error persists unexpectedly
+        if "NOT NULL constraint failed: costs.total_cost" in str(e.orig):
+             print(f"IntegrityError: total_cost was unexpectedly NULL before commit. Data: {cost_data}")
+        else:
+             print(f"IntegrityError creating cost record: {e}")
+        raise # Re-raise the original exception for FastAPI to handle
+    except Exception as e:
+        db.rollback()
+        print(f"Unexpected error creating cost record: {e}")
+        raise
 
 # --- Alert CRUD Operations ---
 def get_alerts(db: Session) -> List[Alert]:
@@ -489,7 +537,7 @@ def get_alerts(db: Session) -> List[Alert]:
     # Eager load material and project for context in the alert message if needed
     return db.query(Alert).options(
         joinedload(Alert.material).joinedload(Inventory.project)
-        ).filter(Alert.is_active == True).all()
+        ).filter(Alert.is_active == True).order_by(Alert.date_created.desc()).all()
 
 def create_alert(db: Session, alert: AlertCreate) -> Alert:
     """Creates an alert, preventing exact duplicate active alerts."""
@@ -509,9 +557,17 @@ def create_alert(db: Session, alert: AlertCreate) -> Alert:
 
     db_alert = Alert(**alert.model_dump())
     db.add(db_alert)
-    db.commit()
-    db.refresh(db_alert)
-    return db_alert
+    try:
+        db.commit()
+        db.refresh(db_alert)
+        return db_alert
+    except Exception as e:
+         db.rollback()
+         print(f"Error creating alert: {e}")
+         # Decide how to handle alert creation failure (e.g., log, raise)
+         # Raising might interfere with the primary operation (consumption/waste log)
+         return None # Or re-raise if alert is critical
+
 
 def resolve_alert(db: Session, alert_id: int) -> Optional[Alert]:
     """Marks an alert as inactive."""
@@ -522,4 +578,3 @@ def resolve_alert(db: Session, alert_id: int) -> Optional[Alert]:
         db.refresh(db_alert)
         return db_alert
     return None
-

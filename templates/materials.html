@@ -22,7 +22,8 @@
             Analyze Inventory
           </button>
           {# Add Material Button #}
-          <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" onclick="openModal('addMaterialModal')">
+          <button type="button" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2" onclick="openModal('addMaterialModal')">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
             Add New Material
           </button>
        </div>
@@ -59,6 +60,7 @@
         <thead class="bg-gray-50">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material Name</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th> {# Added Project Column #}
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reorder Point</th>
@@ -72,6 +74,7 @@
           {% for material in materials %}
           <tr>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ material.material_name }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.project.name if material.project else 'N/A' }}</td> {# Display Project Name #}
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.quantity }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.unit }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ material.reorder_point }}</td>
@@ -86,7 +89,7 @@
            {# Message if no materials #}
            {% if not materials %}
             <tr>
-                <td colspan="7" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No materials found. Add materials to get started.</td>
+                <td colspan="8" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No materials found. Add materials to get started.</td> {# Updated colspan #}
             </tr>
             {% endif %}
         </tbody>
@@ -106,27 +109,38 @@
         </div>
         {# Modal Body Form #}
         <div class="mt-2 px-1 py-3">
-          <form id="addMaterialForm">
+          <form id="addMaterialForm" class="space-y-4"> {# Added space-y for spacing #}
+             {# *** ADDED PROJECT DROPDOWN *** #}
+             <div class="mb-4">
+              <label for="project_id" class="block text-sm font-medium text-gray-700 mb-1">Project <span class="text-red-500">*</span></label>
+              <select id="project_id" name="project_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 <option value="">Select Project</option>
+                {% for project in projects %} {# Assumes 'projects' is passed to the template #}
+                <option value="{{ project.id }}">{{ project.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {# *** END PROJECT DROPDOWN *** #}
             <div class="mb-4">
-              <label for="material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+              <label for="material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name <span class="text-red-500">*</span></label>
               <input type="text" id="material_name" name="material_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input type="number" id="quantity" name="quantity" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Initial Quantity <span class="text-red-500">*</span></label>
+              <input type="number" id="quantity" name="quantity" step="0.01" required min="0" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">Unit (e.g., kg, m³, pcs)</label>
+              <label for="unit" class="block text-sm font-medium text-gray-700 mb-1">Unit (e.g., kg, m³, pcs) <span class="text-red-500">*</span></label>
               <input type="text" id="unit" name="unit" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point</label>
-              <input type="number" id="reorder_point" name="reorder_point" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <label for="reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point <span class="text-red-500">*</span></label>
+              <input type="number" id="reorder_point" name="reorder_point" step="0.01" required min="0" value="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-              <select id="supplier_id" name="supplier_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                 <option value="">Select Supplier</option>
+              <label for="supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label> {# Changed label #}
+              <select id="supplier_id" name="supplier_id" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                 <option value="">Select Supplier (Optional)</option> {# Updated placeholder #}
                 {% for supplier in suppliers %}
                 <option value="{{ supplier.id }}">{{ supplier.name }}</option>
                 {% endfor %}
@@ -155,28 +169,40 @@
         </div>
          {# Modal Body Form #}
         <div class="mt-2 px-1 py-3">
-          <form id="editMaterialForm">
+          <form id="editMaterialForm" class="space-y-4"> {# Added space-y #}
             <input type="hidden" id="edit_material_id" name="material_id">
+            {# *** ADDED PROJECT DROPDOWN (Edit) *** #}
+             <div class="mb-4">
+              <label for="edit_project_id" class="block text-sm font-medium text-gray-700 mb-1">Project <span class="text-red-500">*</span></label>
+              <select id="edit_project_id" name="project_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                 <option value="">Select Project</option>
+                {% for project in projects %} {# Assumes 'projects' is passed to the template #}
+                <option value="{{ project.id }}">{{ project.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            {# *** END PROJECT DROPDOWN (Edit) *** #}
             <div class="mb-4">
-              <label for="edit_material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name</label>
+              <label for="edit_material_name" class="block text-sm font-medium text-gray-700 mb-1">Material Name <span class="text-red-500">*</span></label>
               <input type="text" id="edit_material_name" name="material_name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="edit_quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input type="number" id="edit_quantity" name="quantity" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+              <label for="edit_quantity" class="block text-sm font-medium text-gray-700 mb-1">Quantity <span class="text-red-500">*</span></label>
+              <input type="number" id="edit_quantity" name="quantity" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" readonly> {# Made Quantity Readonly in Edit Form - updated via consumption/waste #}
+              <p class="mt-1 text-xs text-gray-500">Quantity is updated via Consumption/Waste logs.</p>
             </div>
             <div class="mb-4">
-              <label for="edit_unit" class="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+              <label for="edit_unit" class="block text-sm font-medium text-gray-700 mb-1">Unit <span class="text-red-500">*</span></label>
               <input type="text" id="edit_unit" name="unit" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="edit_reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point</label>
+              <label for="edit_reorder_point" class="block text-sm font-medium text-gray-700 mb-1">Reorder Point <span class="text-red-500">*</span></label>
               <input type="number" id="edit_reorder_point" name="reorder_point" step="0.01" required min="0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="edit_supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
-              <select id="edit_supplier_id" name="supplier_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                 <option value="">Select Supplier</option>
+              <label for="edit_supplier_id" class="block text-sm font-medium text-gray-700 mb-1">Supplier (Optional)</label> {# Changed label #}
+              <select id="edit_supplier_id" name="supplier_id" class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                 <option value="">Select Supplier (Optional)</option> {# Updated placeholder #}
                 {% for supplier in suppliers %}
                 <option value="{{ supplier.id }}">{{ supplier.name }}</option>
                 {% endfor %}
@@ -184,7 +210,7 @@
             </div>
             <div class="pt-4">
               <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Update Material
+                Update Material Details
               </button>
             </div>
           </form>
@@ -196,36 +222,35 @@
 </div>
 
 <script>
-// --- Modal/Form Handling (Existing Logic - slightly tidied) ---
+// --- Modal/Form Handling ---
 function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
 function closeModal(modalId) {
     document.getElementById(modalId).classList.add('hidden');
-    // Optionally reset forms within the closed modal
     const form = document.getElementById(modalId)?.querySelector('form');
-    if (form) {
-        form.reset();
-    }
+    if (form) form.reset();
 }
 
+// --- Edit Material (Populate Form) ---
 function editMaterial(materialId) {
   fetch(`/api/materials/${materialId}`)
     .then(response => { if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); } return response.json(); })
     .then(material => {
       if (!material || typeof material !== 'object') { throw new Error('Invalid material data received'); }
       document.getElementById('edit_material_id').value = material.id;
-      document.getElementById('edit_material_name').value = material.material_name;
-      document.getElementById('edit_quantity').value = material.quantity;
-      document.getElementById('edit_unit').value = material.unit;
-      document.getElementById('edit_reorder_point').value = material.reorder_point;
-      // Ensure supplier_id is part of the response from your API
-      document.getElementById('edit_supplier_id').value = material.supplier_id || '';
+      document.getElementById('edit_material_name').value = material.material_name || '';
+      document.getElementById('edit_quantity').value = material.quantity === null ? '' : material.quantity; // Display quantity, but it's readonly
+      document.getElementById('edit_unit').value = material.unit || '';
+      document.getElementById('edit_reorder_point').value = material.reorder_point === null ? '' : material.reorder_point;
+      document.getElementById('edit_supplier_id').value = material.supplier_id === null ? '' : material.supplier_id; // Handle null supplier
+      document.getElementById('edit_project_id').value = material.project_id === null ? '' : material.project_id; // Set project ID
       openModal('editMaterialModal');
     })
     .catch(error => { console.error('Error fetching material details:', error); alert('Error fetching material details: ' + error.message); });
 }
 
+// --- Delete Material ---
 function deleteMaterial(materialId) {
-  if (confirm('Are you sure you want to delete this material? This action cannot be undone.')) {
+  if (confirm('Are you sure you want to delete this material? This action cannot be undone and may fail if linked to other records.')) {
     fetch(`/api/materials/${materialId}`, { method: 'DELETE' })
       .then(response => {
         if (response.ok) { window.location.reload(); }
@@ -235,36 +260,135 @@ function deleteMaterial(materialId) {
   }
 }
 
-// Add Material Form Submission Handler
+// --- Add Material Form Submission Handler (UPDATED) ---
 document.getElementById('addMaterialForm').addEventListener('submit', function(e) {
-    e.preventDefault(); const formData = new FormData(this); const data = {}; let isValid = true;
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {};
+    let isValid = true;
+
     formData.forEach((value, key) => {
-        if (['quantity', 'reorder_point'].includes(key)) { data[key] = value === '' ? null : parseFloat(value); if (data[key] === null || data[key] < 0) isValid = false; }
-        else if (key === 'supplier_id') { data[key] = value === '' ? null : parseInt(value); if (data[key] === null) isValid = false; }
-        else { data[key] = value.trim(); }
+        const trimmedValue = value.trim();
+        if (['quantity', 'reorder_point'].includes(key)) {
+            data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+            if (data[key] === null || data[key] < 0) {
+                alert(`${key.replace('_', ' ')} must be a non-negative number.`);
+                isValid = false;
+            }
+        } else if (key === 'supplier_id' || key === 'project_id') { // Handle project_id as well
+            data[key] = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
+             // Check if project_id is null (it's required)
+            if (key === 'project_id' && data[key] === null) {
+                 alert('Project must be selected.');
+                 isValid = false;
+            }
+        } else {
+            data[key] = trimmedValue;
+        }
     });
-    if (!data.material_name || !data.unit) isValid = false;
-    if (!isValid) { alert('Please fill all fields correctly. Quantity & Reorder Point must be >= 0.'); return; }
-    fetch('/api/materials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-        .then(response => { if (response.ok) { return response.json(); } else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}: Could not add material`); }); } })
-        .then(data => { console.log('Success:', data); closeModal('addMaterialModal'); window.location.reload(); })
-        .catch(error => { console.error('Error:', error); alert(`Failed to add material: ${error.message}`); });
+
+    // Check required string fields
+    if (!data.material_name) { alert('Material Name is required.'); isValid = false; }
+    if (!data.unit) { alert('Unit is required.'); isValid = false; }
+
+    if (!isValid) { return; } // Stop if validation failed
+
+    // Send data to API
+    fetch('/api/materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (response.ok) { return response.json(); }
+        else {
+            return response.json().then(err => {
+                // Provide specific error message for unique constraint
+                let detail = err.detail || `Error ${response.status}: Could not add material`;
+                if (response.status === 409 || (typeof detail === 'string' && detail.includes('already exists'))) {
+                    detail = `Material '${data.material_name}' already exists for the selected project.`;
+                }
+                throw new Error(detail);
+            });
+        }
+    })
+    .then(result => {
+        console.log('Success:', result);
+        closeModal('addMaterialModal');
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`Failed to add material: ${error.message}`);
+    });
 });
 
-// Edit Material Form Submission Handler
+
+// --- Edit Material Form Submission Handler (UPDATED) ---
 document.getElementById('editMaterialForm').addEventListener('submit', function(e) {
-    e.preventDefault(); const materialId = document.getElementById('edit_material_id').value; const formData = new FormData(this); const data = {}; let isValid = true;
+    e.preventDefault();
+    const materialId = document.getElementById('edit_material_id').value;
+    const formData = new FormData(this);
+    const data = {};
+    let isValid = true;
+
     formData.forEach((value, key) => {
-        if (['quantity', 'reorder_point'].includes(key)) { data[key] = value === '' ? null : parseFloat(value); if (data[key] === null || data[key] < 0) isValid = false; }
-        else if (key === 'supplier_id') { data[key] = value === '' ? null : parseInt(value); if (data[key] === null) isValid = false; }
-        else if (key !== 'material_id') { data[key] = value.trim(); }
+        // Skip hidden ID field and readonly quantity field
+        if (key === 'material_id' || key === 'quantity') return;
+
+        const trimmedValue = value.trim();
+        if (key === 'reorder_point') {
+            data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+            if (data[key] === null || data[key] < 0) {
+                 alert('Reorder Point must be a non-negative number.');
+                 isValid = false;
+            }
+        } else if (key === 'supplier_id' || key === 'project_id') { // Handle project_id
+             data[key] = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
+             // Check if project_id is null (it's required)
+            if (key === 'project_id' && data[key] === null) {
+                 alert('Project must be selected.');
+                 isValid = false;
+            }
+        } else {
+            data[key] = trimmedValue;
+        }
     });
-     if (!data.material_name || !data.unit) isValid = false;
-     if (!isValid) { alert('Please fill all fields correctly. Quantity & Reorder Point must be >= 0.'); return; }
-    fetch(`/api/materials/${materialId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
-        .then(response => { if (response.ok) { return response.json(); } else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}: Could not update material`); }); } })
-        .then(data => { console.log('Update Success:', data); closeModal('editMaterialModal'); window.location.reload(); })
-        .catch(error => { console.error('Error:', error); alert(`Failed to update material: ${error.message}`); });
+
+     // Check required string fields
+    if (!data.material_name) { alert('Material Name is required.'); isValid = false; }
+    if (!data.unit) { alert('Unit is required.'); isValid = false; }
+
+    if (!isValid) { return; } // Stop if validation failed
+
+    // Send update request (note: quantity is not included in data)
+    fetch(`/api/materials/${materialId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data) // Send only updatable fields
+    })
+    .then(response => {
+        if (response.ok) { return response.json(); }
+        else {
+            return response.json().then(err => {
+                 // Provide specific error message for unique constraint
+                let detail = err.detail || `Error ${response.status}: Could not update material`;
+                if (response.status === 409 || (typeof detail === 'string' && detail.includes('already exists'))) {
+                    detail = `Material name '${data.material_name}' might already exist for the selected project.`;
+                }
+                 throw new Error(detail);
+             });
+        }
+    })
+    .then(result => {
+        console.log('Update Success:', result);
+        closeModal('editMaterialModal');
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert(`Failed to update material details: ${error.message}`);
+    });
 });
 
 
@@ -319,20 +443,21 @@ function renderInventoryReportSections(markdown) {
         "Optimization Suggestions",
         "Risk Assessment",
         "Price Context", // Matches agent output
-        "Report Error"
+        "Report Error" // Handle potential error reports
     ];
 
     // Split the markdown by H2 headings (## Heading)
     const sections = markdown.split(/\n##\s+([^\n]+)/);
 
-    let currentContent = sections[0].trim(); // Content before the first heading
+    let currentContent = sections[0].trim(); // Content before the first heading (e.g., timestamp)
 
     // Add timestamp/location if present
     if (currentContent) {
         const infoDiv = document.createElement('div');
         infoDiv.className = 'mb-4 text-sm text-gray-600 italic';
+        // Use marked.js if available to render potential markdown in the preamble
         if (typeof marked !== 'undefined') { infoDiv.innerHTML = marked.parse(currentContent); }
-        else { infoDiv.textContent = currentContent; }
+        else { infoDiv.textContent = currentContent; } // Fallback to text
         inventoryReportOutputContainer.appendChild(infoDiv);
     }
 
@@ -357,10 +482,10 @@ function renderInventoryReportSections(markdown) {
             const headingSpan = document.createElement('span');
             headingSpan.textContent = heading;
             headerElement.appendChild(headingSpan);
-            // Add chevron icon for visual cue
+            // Add chevron icon/text for visual cue
             const chevronSpan = document.createElement('span');
             chevronSpan.className = 'text-gray-400 text-xs transition-transform transform details-marker'; // Class for potential rotation
-            chevronSpan.innerHTML = '▼ Expand'; // Use text or SVG icon
+            // Initial text set by CSS or JS below
             headerElement.appendChild(chevronSpan);
 
         } else {
@@ -375,11 +500,19 @@ function renderInventoryReportSections(markdown) {
         // Create content div
         const contentDiv = document.createElement('div');
         // Apply prose styling for markdown rendering + padding
-        contentDiv.className = 'p-4 prose prose-sm max-w-none';
+        contentDiv.className = 'p-4 prose prose-sm max-w-none'; // max-w-none prevents prose from limiting width
 
         // Render markdown content using marked.js if available
          if (typeof marked !== 'undefined') {
-            contentDiv.innerHTML = marked.parse(content);
+            try {
+                // Sanitize potentially harmful content if needed, depending on source
+                // const cleanHtml = DOMPurify.sanitize(marked.parse(content));
+                // contentDiv.innerHTML = cleanHtml;
+                contentDiv.innerHTML = marked.parse(content); // Use marked directly if source is trusted
+            } catch (e) {
+                console.error("Error parsing markdown:", e);
+                contentDiv.textContent = "Error rendering content."; // Display error
+            }
          } else {
             contentDiv.textContent = content; // Fallback to plain text
          }
@@ -393,11 +526,14 @@ function renderInventoryReportSections(markdown) {
             detailsElement.appendChild(contentDiv);
             sectionCard.appendChild(detailsElement);
 
-             // Optional: Add simple JS to change expand/collapse text/icon if needed
-            // detailsElement.addEventListener('toggle', () => {
-            //    const marker = headerElement.querySelector('.details-marker');
-            //    if (marker) { marker.textContent = detailsElement.open ? '▲ Collapse' : '▼ Expand'; }
-            // });
+             // Add JS to update expand/collapse text
+            const marker = headerElement.querySelector('.details-marker');
+            if (marker) {
+                 marker.textContent = detailsElement.open ? '▲ Collapse' : '▼ Expand'; // Initial state
+                 detailsElement.addEventListener('toggle', () => {
+                    marker.textContent = detailsElement.open ? '▲ Collapse' : '▼ Expand';
+                });
+            }
 
         } else {
              // Non-collapsible sections (Executive Summary, Error)

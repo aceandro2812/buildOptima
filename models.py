@@ -137,5 +137,5 @@ class Alert(Base):
     is_active = Column(Boolean, default=True, nullable=False) # Use Boolean
 
     # Relationship (Optional: If you want to access material from alert)
-    # material = relationship("Inventory")
+    material = relationship("Inventory")
 

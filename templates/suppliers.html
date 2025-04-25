@@ -12,7 +12,6 @@
       </button>
     </div>
 
-    <!-- Suppliers Table -->
     <div class="overflow-x-auto bg-white shadow-md rounded-lg">
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
@@ -31,12 +30,12 @@
           {% for supplier in suppliers %}
           <tr>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ supplier.name }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.contact_person }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.email }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.phone }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.address }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.lead_time_days }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.reliability_rating }}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.contact_person or '-' }}</td> {# Added default display #}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.email or '-'}}</td> {# Added default display #}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.phone or '-'}}</td> {# Added default display #}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.address or '-'}}</td> {# Added default display #}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.lead_time_days or '-'}}</td> {# Added default display #}
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ supplier.reliability_rating or '-'}}</td> {# Added default display #}
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
               <button class="text-indigo-600 hover:text-indigo-900 mr-2" onclick="editSupplier({{ supplier.id }})">Edit</button>
               <button class="text-red-600 hover:text-red-900" onclick="deleteSupplier({{ supplier.id }})">Delete</button>
@@ -47,46 +46,46 @@
       </table>
     </div>
 
-    <!-- Add Supplier Modal -->
-    <div id="addSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <!-- Modal header with close button -->
-        <div class="flex justify-between items-center">
+    <div id="addSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+      <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"> {# Adjusted width and position #}
+        <div class="flex justify-between items-center pb-3">
           <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Supplier</h3>
-          <button type="button" class="text-2xl leading-none" onclick="closeModal('addSupplierModal')">&times;</button>
+           <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('addSupplierModal')">
+             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+          </button>
         </div>
-        <div class="mt-2 px-7 py-3">
-          <form id="addSupplierForm" action="/api/suppliers" method="POST" onsubmit="submitSupplierForm(event)">
+        <div class="mt-2 px-1 py-3"> {# Adjusted padding #}
+          <form id="addSupplierForm" class="space-y-4"> {# Removed action/method, added spacing #}
             <div class="mb-4">
-              <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
-              <input type="text" id="name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label> {# Added required indicator #}
+              <input type="text" id="name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
             </div>
             <div class="mb-4">
-              <label for="contact_person" class="block text-sm font-medium text-gray-700">Contact Person</label>
-              <input type="text" id="contact_person" name="contact_person" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="contact_person" class="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+              <input type="text" id="contact_person" name="contact_person" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
             </div>
             <div class="mb-4">
-              <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" id="email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <input type="email" id="email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
             </div>
             <div class="mb-4">
-              <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
-              <input type="text" id="phone" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+              <input type="text" id="phone" name="phone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
             </div>
             <div class="mb-4">
-              <label for="address" class="block text-sm font-medium text-gray-700">Address</label>
-              <input type="text" id="address" name="address" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="address" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              <input type="text" id="address" name="address" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
             </div>
             <div class="mb-4">
-              <label for="lead_time_days" class="block text-sm font-medium text-gray-700">Lead Time (Days)</label>
-              <input type="number" id="lead_time_days" name="lead_time_days" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="lead_time_days" class="block text-sm font-medium text-gray-700 mb-1">Lead Time (Days)</label>
+              <input type="number" id="lead_time_days" name="lead_time_days" min="1" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required, set min=1 #}
             </div>
             <div class="mb-4">
-              <label for="reliability_rating" class="block text-sm font-medium text-gray-700">Reliability Rating</label>
-              <input type="number" step="0.1" id="reliability_rating" name="reliability_rating" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
+              <label for="reliability_rating" class="block text-sm font-medium text-gray-700 mb-1">Reliability Rating (0-5)</label>
+              <input type="number" step="0.1" id="reliability_rating" name="reliability_rating" min="0" max="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required, set min/max #}
             </div>
-            <div class="items-center px-4 py-3">
-              <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
+            <div class="pt-4"> {# Added padding top #}
+              <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"> {# Adjusted styles #}
                 Add Supplier
               </button>
             </div>
@@ -95,53 +94,53 @@
       </div>
     </div>
 
-    <!-- Edit Supplier Modal -->
-    <div id="editSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-      <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-        <!-- Modal header with close button -->
-        <div class="flex justify-between items-center">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Supplier</h3>
-          <button type="button" class="text-2xl leading-none" onclick="closeModal('editSupplierModal')">&times;</button>
+    <div id="editSupplierModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50"> {# Added z-index #}
+        <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white"> {# Adjusted width and position #}
+            <div class="flex justify-between items-center pb-3">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Edit Supplier</h3>
+             <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('editSupplierModal')">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+            </button>
+            </div>
+            <div class="mt-2 px-1 py-3"> {# Adjusted padding #}
+            <form id="editSupplierForm" class="space-y-4"> {# Added spacing #}
+                <input type="hidden" id="edit_supplier_id" name="supplier_id">
+                <div class="mb-4">
+                <label for="edit_name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                <input type="text" id="edit_name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div class="mb-4">
+                <label for="edit_contact_person" class="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                <input type="text" id="edit_contact_person" name="contact_person" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                </div>
+                <div class="mb-4">
+                <label for="edit_email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" id="edit_email" name="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                </div>
+                <div class="mb-4">
+                <label for="edit_phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input type="text" id="edit_phone" name="phone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                </div>
+                <div class="mb-4">
+                <label for="edit_address" class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input type="text" id="edit_address" name="address" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required #}
+                </div>
+                <div class="mb-4">
+                <label for="edit_lead_time_days" class="block text-sm font-medium text-gray-700 mb-1">Lead Time (Days)</label>
+                <input type="number" id="edit_lead_time_days" name="lead_time_days" min="1" step="1" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required, set min=1 #}
+                </div>
+                <div class="mb-4">
+                <label for="edit_reliability_rating" class="block text-sm font-medium text-gray-700 mb-1">Reliability Rating (0-5)</label>
+                <input type="number" step="0.1" id="edit_reliability_rating" name="reliability_rating" min="0" max="5" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Removed required, set min/max #}
+                </div>
+                <div class="pt-4"> {# Added padding top #}
+                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"> {# Adjusted styles #}
+                    Update Supplier
+                </button>
+                </div>
+            </form>
+            </div>
         </div>
-        <div class="mt-2 px-7 py-3">
-          <form id="editSupplierForm">
-            <input type="hidden" id="edit_supplier_id" name="supplier_id">
-            <div class="mb-4">
-              <label for="edit_name" class="block text-sm font-medium text-gray-700">Name</label>
-              <input type="text" id="edit_name" name="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_contact_person" class="block text-sm font-medium text-gray-700">Contact Person</label>
-              <input type="text" id="edit_contact_person" name="contact_person" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_email" class="block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" id="edit_email" name="email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_phone" class="block text-sm font-medium text-gray-700">Phone</label>
-              <input type="text" id="edit_phone" name="phone" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_address" class="block text-sm font-medium text-gray-700">Address</label>
-              <input type="text" id="edit_address" name="address" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_lead_time_days" class="block text-sm font-medium text-gray-700">Lead Time (Days)</label>
-              <input type="number" id="edit_lead_time_days" name="lead_time_days" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="mb-4">
-              <label for="edit_reliability_rating" class="block text-sm font-medium text-gray-700">Reliability Rating</label>
-              <input type="number" step="0.1" id="edit_reliability_rating" name="reliability_rating" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm">
-            </div>
-            <div class="items-center px-4 py-3">
-              <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-300">
-                Update Supplier
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -152,102 +151,199 @@ function openModal(modalId) {
 }
 
 function closeModal(modalId) {
-  document.getElementById(modalId).classList.add('hidden');
+  const modal = document.getElementById(modalId);
+  modal.classList.add('hidden');
+  // Reset the form inside the modal when closing
+  const form = modal.querySelector('form');
+  if (form) form.reset();
 }
 
 function editSupplier(supplierId) {
   fetch(`/api/suppliers/${supplierId}`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(supplier => {
+      if (!supplier || typeof supplier !== 'object') {
+          throw new Error('Invalid supplier data received');
+      }
       document.getElementById('edit_supplier_id').value = supplier.id;
-      document.getElementById('edit_name').value = supplier.name;
-      document.getElementById('edit_contact_person').value = supplier.contact_person;
-      document.getElementById('edit_email').value = supplier.email;
-      document.getElementById('edit_phone').value = supplier.phone;
-      document.getElementById('edit_address').value = supplier.address;
-      document.getElementById('edit_lead_time_days').value = supplier.lead_time_days;
-      document.getElementById('edit_reliability_rating').value = supplier.reliability_rating;
+      document.getElementById('edit_name').value = supplier.name || '';
+      document.getElementById('edit_contact_person').value = supplier.contact_person || '';
+      document.getElementById('edit_email').value = supplier.email || '';
+      document.getElementById('edit_phone').value = supplier.phone || '';
+      document.getElementById('edit_address').value = supplier.address || '';
+      document.getElementById('edit_lead_time_days').value = supplier.lead_time_days === null ? '' : supplier.lead_time_days; // Handle null for number inputs
+      document.getElementById('edit_reliability_rating').value = supplier.reliability_rating === null ? '' : supplier.reliability_rating; // Handle null for number inputs
       openModal('editSupplierModal');
+    })
+    .catch(error => {
+        console.error('Error fetching supplier details:', error);
+        alert('Error fetching supplier details: ' + error.message);
     });
 }
 
 function deleteSupplier(supplierId) {
-  if (confirm('Are you sure you want to delete this supplier?')) {
+  if (confirm('Are you sure you want to delete this supplier? This may fail if the supplier is linked to materials.')) {
     fetch(`/api/suppliers/${supplierId}`, { method: 'DELETE' })
       .then(response => {
         if (response.ok) {
           window.location.reload();
         } else {
-          alert('Error deleting supplier');
+          // Try to show specific error from backend (like 409 Conflict)
+           response.json().then(err => {
+                alert('Error deleting supplier: ' + (err.detail || response.statusText));
+            }).catch(() => {
+                alert('Error deleting supplier: ' + response.statusText);
+            });
         }
+      })
+      .catch(error => {
+          console.error('Error:', error);
+          alert('Error deleting supplier. Check console.');
       });
   }
 }
 
+// --- Updated Add Supplier Form Submission Handler ---
 document.getElementById('addSupplierForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const data = {};
-  formData.forEach((value, key) => {
-    data[key] = value;
-  });
-  
-  fetch('/api/suppliers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(response => {
-    if (response.ok) {
-      window.location.reload();
-    } else {
-      alert('Error adding supplier');
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {};
+    let isValid = true; // Optional: Add a flag for client-side validation
+
+    formData.forEach((value, key) => {
+        const trimmedValue = value.trim();
+
+        if (key === 'lead_time_days') {
+            // If empty, set to null. Otherwise, parse as integer.
+            data[key] = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
+            // Validate the parsed number if it's not null
+            if (data[key] !== null && (isNaN(data[key]) || data[key] <= 0)) {
+                alert('Lead Time (Days) must be a number greater than 0 if provided.');
+                isValid = false;
+            }
+        } else if (key === 'reliability_rating') {
+            // If empty, set to null. Otherwise, parse as float.
+            data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+            // Validate the parsed number if it's not null
+            if (data[key] !== null && (isNaN(data[key]) || data[key] < 0 || data[key] > 5)) {
+                alert('Reliability Rating must be a number between 0 and 5 if provided.');
+                isValid = false;
+            }
+        } else if (trimmedValue === '' && ['contact_person', 'email', 'phone', 'address'].includes(key)) {
+            // Set optional text fields to null if left empty
+            data[key] = null;
+        } else {
+            // Keep other values (like name) as strings
+            data[key] = trimmedValue;
+        }
+    });
+
+    // Check name is present (it's required)
+    if (!data.name) {
+        alert('Supplier Name is required.');
+        isValid = false;
     }
-  });
+
+    if (!isValid) {
+        return; // Stop submission if client-side validation failed
+    }
+
+    // Send the cleaned data
+    fetch('/api/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(response => {
+        if (response.ok) {
+            closeModal('addSupplierModal');
+            window.location.reload();
+        } else {
+            // Improved error handling to show backend message
+            response.json().then(err => {
+                alert('Error adding supplier: ' + (err.detail || `Status ${response.status}`));
+            }).catch(() => {
+                alert('Error adding supplier: Status ' + response.status);
+            });
+        }
+    }).catch(error => {
+        console.error('Error:', error);
+        alert('Error adding supplier. Check console for details.');
+    });
 });
 
+
+// --- Updated Edit Supplier Form Submission Handler ---
 document.getElementById('editSupplierForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  const supplierId = document.getElementById('edit_supplier_id').value;
-  const formData = new FormData(this);
-  const data = Object.fromEntries(formData);
-  
-  fetch(`/api/suppliers/${supplierId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  }).then(response => {
-    if (response.ok) {
-      window.location.reload();
-    } else {
-      alert('Error updating supplier');
+    e.preventDefault();
+    const supplierId = document.getElementById('edit_supplier_id').value;
+    const formData = new FormData(this);
+    const data = {};
+    let isValid = true;
+
+    formData.forEach((value, key) => {
+        if (key === 'supplier_id') return; // Skip the hidden ID field
+
+        const trimmedValue = value.trim();
+
+        if (key === 'lead_time_days') {
+            data[key] = trimmedValue === '' ? null : parseInt(trimmedValue, 10);
+            if (data[key] !== null && (isNaN(data[key]) || data[key] <= 0)) {
+                alert('Lead Time (Days) must be a number greater than 0 if provided.');
+                isValid = false;
+            }
+        } else if (key === 'reliability_rating') {
+            data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+            if (data[key] !== null && (isNaN(data[key]) || data[key] < 0 || data[key] > 5)) {
+                alert('Reliability Rating must be a number between 0 and 5 if provided.');
+                isValid = false;
+            }
+        } else if (trimmedValue === '' && ['contact_person', 'email', 'phone', 'address'].includes(key)) {
+             data[key] = null; // Set optional text fields to null if empty
+        }
+        else {
+            data[key] = trimmedValue;
+        }
+    });
+
+     // Check name is present
+    if (!data.name) {
+        alert('Supplier Name is required.');
+        isValid = false;
     }
-  });
+
+    if (!isValid) {
+        return; // Stop submission if client-side validation failed
+    }
+
+    fetch(`/api/suppliers/${supplierId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data) // Send cleaned data
+    }).then(response => {
+        if (response.ok) {
+            closeModal('editSupplierModal');
+            window.location.reload();
+        } else {
+             // Improved error handling
+            response.json().then(err => {
+                alert('Error updating supplier: ' + (err.detail || `Status ${response.status}`));
+            }).catch(() => {
+                alert('Error updating supplier: Status ' + response.status);
+            });
+        }
+    }).catch(error => {
+        console.error('Error:', error);
+        alert('Error updating supplier. Check console for details.');
+    });
 });
 
-function submitSupplierForm(event) {
-  event.preventDefault();
-  const form = document.getElementById('addSupplierForm');
-  const formData = new FormData(form);
-  const data = {};
-  formData.forEach((value, key) => { data[key] = value; });
+// Remove the old standalone submitSupplierForm function if it exists
+// function submitSupplierForm(event) { ... } // DELETE THIS FUNCTION
 
-  fetch('/api/suppliers', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.id) {
-      window.location.reload();
-    } else {
-      alert('Error adding supplier');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    alert('Error adding supplier');
-  });
-}
 </script>
 {% endblock %}
