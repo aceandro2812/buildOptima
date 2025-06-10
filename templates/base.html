@@ -3,170 +3,312 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}BuildOptima{% endblock %}</title> {# Default title #}
+    <title>{% block title %}BuildOptima Dashboard{% endblock %}</title>
     {# Tailwind CSS via CDN #}
     <script src="https://cdn.tailwindcss.com"></script>
-    {# Include Marked.js for Markdown rendering in reports #}
+    {# Include Marked.js for Markdown rendering in reports (used by materials, waste pages) #}
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    {# Link to custom styles (if any) #}
+    
+    {# Link to custom styles (if any - some styles are now inline below) #}
+    {# Consider refactoring common styles here if preferred over inline in base #}
     <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
-    {# Add Tailwind Typography for prose styling #}
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: { // Extend the default theme if needed
-                }
-            },
-            plugins: [
-                require('@tailwindcss/typography'), // Require the typography plugin
-                // require('@tailwindcss/forms'), // Uncomment if using form styling plugin
-            ],
-        }
-    </script>
-    {# Load the actual typography plugin script AFTER the config #}
-    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-
 
     <style>
-        /* Simple style for details marker */
-        details > summary { list-style: none; }
-        details > summary::-webkit-details-marker { display: none; } /* Chrome/Safari */
-        details > summary::marker { display: none; } /* Firefox */
+        /* Custom Dashboard Styles (to complement Tailwind) */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #f0f4f8; /* Light background for the entire page */
+        }
 
-        /* Style for expand/collapse text */
-         details summary .details-marker::before {
-             content: '▼ Expand'; /* Default text */
-             font-size: 0.75rem; /* text-xs */
-             color: #9ca3af; /* text-gray-400 */
-             margin-left: 0.5rem; /* ml-2 */
-         }
-        details[open] summary .details-marker::before {
-             content: '▲ Collapse'; /* Change text */
-         }
+        .dashboard-container-wrapper { /* New wrapper for overall structure */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
 
+        .dashboard-header {
+            height: 4rem; /* Approx 64px */
+            flex-shrink: 0;
+            background-color: #ffffff;
+            box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 4px 5px 0 rgba(0, 0, 0, 0.06); /* Softer shadow */
+            border-bottom: 1px solid #e5e7eb;
+            position: fixed; /* Fixed header */
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 40; /* Ensure header is above sidebar if sidebar had a higher z-index */
+        }
+
+        .dashboard-content-area { /* New div to hold sidebar and main content */
+            display: flex;
+            flex-grow: 1;
+            padding-top: 4rem; /* Offset for fixed header */
+        }
+
+        .dashboard-sidebar {
+            width: 14rem; /* w-56 */
+            flex-shrink: 0;
+            position: fixed;
+            top: 4rem; /* Below header */
+            left: 0;
+            bottom: 0;
+            overflow-y: auto;
+            padding-top: 0.75rem; /* py-3 */
+            padding-bottom: 0.75rem; /* py-3 */
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); /* shadow-lg, adjusted */
+            z-index: 30; /* Sidebar below header */
+        }
+
+        .dashboard-main-content {
+            padding: 1.5rem; /* p-6 */
+            overflow-y: auto;
+            flex-grow: 1;
+            margin-left: 14rem; /* Width of the fixed sidebar */
+            background-color: #f0f4f8; /* Consistent light background for content area */
+        }
+        
+        .pulsing-icon {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .dashboard-sidebar::-webkit-scrollbar { width: 6px; }
+        .dashboard-sidebar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .dashboard-sidebar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+        .dashboard-sidebar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* AI Report Card Styling (from materials.html) */
+        .report-card {
+            background-color: white; border-radius: 0.75rem; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); 
+            margin-bottom: 1.5rem; overflow: hidden;
+        }
+        .report-card summary {
+            padding: 1rem 1.5rem; font-weight: 600; color: #374151; 
+            background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; 
+            cursor: pointer; display: flex; justify-content: space-between; 
+            align-items: center; list-style: none;
+        }
+        .report-card summary::-webkit-details-marker { display: none; }
+        .report-card summary .details-marker {
+            font-size: 0.875rem; color: #6b7280; transition: transform 0.2s ease-in-out;
+        }
+        .report-card details[open] summary .details-marker { transform: rotate(90deg); }
+        .report-card .report-content {
+            padding: 1.5rem; font-size: 0.875rem; color: #4b5563; line-height: 1.6;
+        }
+        .report-card .report-content h1, .report-card .report-content h2, .report-card .report-content h3 {
+            font-weight: 600; color: #1f2937; margin-top: 1rem; margin-bottom: 0.5rem;
+        }
+        .report-card .report-content h1 { font-size: 1.25rem; } 
+        .report-card .report-content h2 { font-size: 1.125rem; }
+        .report-card .report-content h3 { font-size: 1rem; }
+        .report-card .report-content p { margin-bottom: 0.75rem; }
+        .report-card .report-content ul, .report-card .report-content ol {
+            margin-left: 1.25rem; margin-bottom: 0.75rem; list-style-position: outside;
+        }
+        .report-card .report-content ul { list-style-type: disc; }
+        .report-card .report-content ol { list-style-type: decimal; }
+        .report-card .report-content li { margin-bottom: 0.25rem; }
+        .report-card .report-content code {
+            background-color: #f3f4f6; padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem; font-family: monospace;
+        }
+        .report-card .report-content pre {
+            background-color: #f3f4f6; padding: 1rem; border-radius: 0.5rem;
+            overflow-x: auto; margin-bottom: 1rem;
+        }
+        .report-card .report-content pre code { background-color: transparent; padding: 0; }
+        .report-card .report-content blockquote {
+            border-left: 4px solid #d1d5db; padding-left: 1rem; margin-left: 0;
+            font-style: italic; color: #6b7280;
+        }
+        .report-card .report-content table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        .report-card .report-content th, .report-card .report-content td {
+            border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; text-align: left;
+        }
+        .report-card .report-content th { background-color: #f9fafb; }
+        .report-card.error-card summary {
+            background-color: #fee2e2; color: #991b1b; border-color: #fecaca;
+        }
+        .report-card.error-card .report-content { background-color: #fff5f5; }
+
+        /* Table styling (from materials.html) */
+        .styled-table {
+            width: 100%; border-collapse: collapse; background-color: white;
+            box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px 0 rgba(0,0,0,0.06);
+            border-radius: 0.5rem; overflow: hidden;
+        }
+        .styled-table th, .styled-table td {
+            padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e5e7eb;
+        }
+        .styled-table thead th {
+            background-color: #f9fafb; font-size: 0.75rem; font-weight: 600;
+            color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .styled-table tbody tr:hover { background-color: #f3f4f6; }
+        .styled-table tbody td { font-size: 0.875rem; color: #374151; }
+        .styled-table tbody td.font-medium { font-weight: 500; color: #1f2937; }
+        .styled-table .action-buttons button {
+            margin-right: 0.5rem; padding: 0.25rem 0.5rem;
+            font-size: 0.75rem; border-radius: 0.375rem;
+        }
+        .styled-table .action-buttons button:last-child { margin-right: 0; }
+        .styled-table .action-buttons .edit-btn { color: #2563eb; background-color: #eff6ff; }
+        .styled-table .action-buttons .edit-btn:hover { background-color: #dbeafe; }
+        .styled-table .action-buttons .delete-btn { color: #dc2626; background-color: #fee2e2; }
+        .styled-table .action-buttons .delete-btn:hover { background-color: #fecaca; }
+
+        /* Modal styling (from materials.html) */
+        .modal-backdrop {
+            position: fixed; inset: 0; background-color: rgba(0,0,0,0.5);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 50; padding: 1rem;
+        }
+        .modal-content {
+            background-color: white; border-radius: 0.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            width: 100%; max-width: 32rem; max-height: 90vh; overflow-y: auto;
+        }
+        .modal-header {
+            padding: 1rem 1.5rem; border-bottom: 1px solid #e5e7eb;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .modal-title { font-size: 1.125rem; font-weight: 600; color: #1f2937; }
+        .modal-close-btn { color: #6b7280; }
+        .modal-close-btn:hover { color: #1f2937; }
+        .modal-body { padding: 1.5rem; }
+        .modal-footer {
+            padding: 1rem 1.5rem; border-top: 1px solid #e5e7eb;
+            background-color: #f9fafb; text-align: right;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db;
+            border-radius: 0.375rem; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);
+            font-size: 0.875rem;
+        }
+        .form-select { background-color: white; }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: 2px solid transparent; outline-offset: 2px;
+            border-color: #2563eb; 
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .form-label {
+            display: block; font-size: 0.875rem; font-weight: 500;
+            color: #374151; margin-bottom: 0.25rem;
+        }
+        .btn-primary, .btn-secondary, .btn-green {
+            padding: 0.625rem 1.25rem; border-radius: 0.375rem;
+            font-weight: 500; font-size: 0.875rem;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .btn-primary { background-color: #2563eb; color: white; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); }
+        .btn-secondary { background-color: white; color: #374151; border: 1px solid #d1d5db; }
+        .btn-secondary:hover { background-color: #f9fafb; }
+        .btn-green { background-color: #059669; color: white; }
+        .btn-green:hover { background-color: #047857; }
     </style>
-
 </head>
-<body class="bg-gray-100 flex flex-col min-h-screen font-sans"> {# Use a common font #}
-    <nav class="bg-white shadow-md sticky top-0 z-40"> {# Make nav sticky #}
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        {# Simple Logo Placeholder #}
-                        <!-- <svg class="h-8 w-auto text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg> -->
-                        <svg class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                        <span class="ml-2 text-xl font-semibold text-gray-800">BuildOptima</span>
+<body class="dashboard-container-wrapper">
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="px-6 py-3 h-full">
+            <div class="flex items-center justify-between h-full">
+                <div class="flex items-center space-x-3">
+                    <a href="{{ url_for('home') }}" class="flex items-center space-x-3">
+                        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
+                            <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </div>
+                        <div>
+                            <h1 class="text-xl font-bold text-gray-800">BuildOptima</h1>
+                            <p class="text-gray-600 text-xs hidden sm:block">Intelligent Construction Management</p>
+                        </div>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-3 py-1.5 rounded-full text-xs font-medium">
+                        <svg class="h-4 w-4" id="ai-agent-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                        <span>AI Agent</span>
+                        <div id="ai-agent-status-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
                     </div>
-                </div>
-                {# Desktop Navigation #}
-                <div class="hidden sm:ml-6 sm:flex sm:space-x-4 sm:items-center"> {# Use space-x for spacing #}
-                    <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50" aria-current="page">Home</a>
-                    <a href="/materials" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Materials</a>
-                    <a href="/suppliers" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Suppliers</a>
-                    <a href="/projects" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Projects</a>
-                    <a href="/consumption" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Consumption</a>
-                    <a href="/costs" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Costs</a>
-                    <a href="/waste" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Waste</a>
-                </div>
-                {# Mobile Menu Button #}
-                <div class="-mr-2 flex items-center sm:hidden">
-                    <button type="button" id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" aria-controls="mobile-menu" aria-expanded="false">
-                        <span class="sr-only">Open main menu</span>
-                        {# Hamburger Icon (visible by default) #}
-                        <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                        {# Close Icon (hidden by default) #}
-                         <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div class="relative">
+                        <svg class="h-5 w-5 text-gray-600 cursor-pointer hover:text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        <!-- Future: Notification count -->
+                    </div>
+                    <svg class="h-5 w-5 text-gray-600 cursor-pointer hover:text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </div>
             </div>
         </div>
-        {# Mobile Menu Panel #}
-        <div class="sm:hidden hidden" id="mobile-menu"> {# Start hidden #}
-            <div class="px-2 pt-2 pb-3 space-y-1">
-                <a href="/" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50" aria-current="page">Home</a>
-                <a href="/materials" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Materials</a>
-                <a href="/suppliers" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Suppliers</a>
-                <a href="/projects" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Projects</a>
-                <a href="/consumption" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Consumption</a>
-                <a href="/costs" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Costs</a>
-                <a href="/waste" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50">Waste</a>
-            </div>
-        </div>
-    </nav>
+    </header>
 
-    <main class="flex-grow">
-         {# Main content block will be filled by child templates #}
-         {% block content %}{% endblock %}
-    </main>
+    <div class="dashboard-content-area">
+        <!-- Sidebar -->
+        <aside class="dashboard-sidebar">
+            <nav class="p-3 space-y-1.5">
+                {% macro nav_link(id, label, icon_svg, target_url) %}
+                <a href="{{ target_url }}"
+                   data-tab-id="{{ id }}"
+                   class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm transition-colors
+                          {{ 'bg-blue-50 text-blue-700 border-r-4 border-blue-600 font-semibold' if request.url.path == target_url else 'text-gray-600 hover:bg-gray-100 hover:text-gray-800 font-medium' }}">
+                    {{ icon_svg | safe }}
+                    <span>{{ label }}</span>
+                </a>
+                {% endmacro %}
 
-    <footer class="bg-white shadow-md mt-8 py-4"> {# Added padding #}
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-gray-500 text-sm">
-                {# --- REMOVED DYNAMIC YEAR --- #}
-                © {% block year %}2024{% endblock %} BuildOptima. All rights reserved.
-                {# --- END REMOVAL --- #}
-            </p>
-        </div>
-    </footer>
+                {{ nav_link('overview', 'Dashboard', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>', url_for('home')) }}
+                {{ nav_link('projects_nav', 'Projects', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>', url_for('projects_page')) }}
+                {{ nav_link('materials_nav', 'Materials', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>', url_for('materials_page')) }}
+                {{ nav_link('suppliers_nav', 'Suppliers', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', url_for('suppliers_page')) }}
+                {{ nav_link('consumption_nav', 'Consumption', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h18m-7.5-3.75h7.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25h-7.5a2.25 2.25 0 0 0-2.25 2.25v7.5a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>', url_for('consumption_page')) }}
+                {{ nav_link('costs_nav', 'Costs', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V6.75m0 0A.75.75 0 0 0 2.25 6m0 0H3m18 0h-.75a.75.75 0 0 0-.75.75v.75M4.5 16.5h15M4.5 12h15M4.5 7.5h15" /></svg>', url_for('costs_page')) }}
+                {{ nav_link('waste_nav', 'Waste', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.56 0c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>', url_for('waste_page')) }}
+                
+                {# Placeholder links from React UI - can be developed later #}
+                {{ nav_link('analytics', 'Analytics', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>', '#') }}
+                {{ nav_link('impact_analysis', 'Impact Analysis', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path></svg>', '#') }}
+            </nav>
+        </aside>
 
+        <!-- Main Content Block -->
+        <main class="dashboard-main-content">
+             {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {# Removed old footer to match new UI aesthetic #}
+
+    {% block root_scripts %}
     <script>
-        // --- Active Nav Link Highlighting ---
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname;
-            document.querySelectorAll('nav a').forEach(link => {
-                if (link.getAttribute('href') === currentPath || (currentPath === '/' && link.getAttribute('href') === '/')) {
-                    link.classList.add('bg-gray-100', 'text-blue-700');
-                    link.setAttribute('aria-current', 'page');
-                } else {
-                    link.classList.remove('bg-gray-100', 'text-blue-700');
-                    link.removeAttribute('aria-current');
-                }
-            });
-        });
+        // AI Agent Status Animation
+        document.addEventListener('DOMContentLoaded', function () {
+            const aiAgentStatusDot = document.getElementById('ai-agent-status-dot');
+            const aiAgentIcon = document.getElementById('ai-agent-icon');
+            let aiAgentActive = false;
 
-        // --- Mobile Menu Toggle ---
-        const mobileMenuButton = document.getElementById('mobile-menu-button');
-        const mobileMenu = document.getElementById('mobile-menu');
-        // Get both icons inside the button
-        const openIcon = mobileMenuButton.querySelector('svg:nth-of-type(1)');
-        const closeIcon = mobileMenuButton.querySelector('svg:nth-of-type(2)');
-
-        mobileMenuButton.addEventListener('click', () => {
-            const expanded = mobileMenuButton.getAttribute('aria-expanded') === 'true' || false;
-            mobileMenuButton.setAttribute('aria-expanded', !expanded);
-            mobileMenu.classList.toggle('hidden'); // Toggle menu visibility
-            // Toggle icon visibility
-            openIcon.classList.toggle('hidden');
-            closeIcon.classList.toggle('hidden');
-        });
-
-         // --- Details/Summary Marker Text Toggle ---
-         document.querySelectorAll('details').forEach(detail => {
-            const summary = detail.querySelector('summary');
-            if (summary) {
-                const marker = summary.querySelector('.details-marker');
-                if (marker) {
-                    // Set initial text
-                    marker.textContent = detail.open ? '▲ Collapse' : '▼ Expand';
-                    // Add event listener
-                    detail.addEventListener('toggle', () => {
-                        marker.textContent = detail.open ? '▲ Collapse' : '▼ Expand';
-                    });
-                }
+            if (aiAgentStatusDot) {
+                setInterval(() => {
+                    aiAgentActive = !aiAgentActive;
+                    aiAgentStatusDot.classList.toggle('bg-green-400', aiAgentActive);
+                    aiAgentStatusDot.classList.toggle('bg-gray-400', !aiAgentActive);
+                    if (aiAgentIcon) {
+                        aiAgentIcon.classList.toggle('pulsing-icon', aiAgentActive);
+                    }
+                }, 3000);
             }
-         });
-
+        });
     </script>
-     {# Allow child templates to add specific scripts #}
-     {% block scripts %}{% endblock %}
+    {% endblock %}
+    {# Allow child templates to add specific scripts #}
+    {% block scripts %}{% endblock %}
 </body>
 </html>

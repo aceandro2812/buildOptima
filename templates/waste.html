@@ -1,269 +1,424 @@
 {% extends "base.html" %}
 
-{% block title %}Waste Management - Construction Material Manager{% endblock %}
+{% block title %}Waste Management - BuildOptima{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-  <div class="px-4 py-6 sm:px-0">
-    {# --- Page Header & Action Buttons --- #}
-    <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
-      <h2 class="text-2xl font-semibold text-gray-900">Waste Management</h2>
-      <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          id="analyzeWasteBtn"
-          class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center gap-2"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" /></svg>
-          Analyze Waste
-        </button>
-        <button
-          type="button"
-          class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
-          onclick="openModal('addWasteModal')"
-        >
-           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-          Add Waste Record
-        </button>
-      </div>
-    </div>
+<style>
+    /* Styles from base.html are inherited. */
+    
+    /* New, enhanced AI Impact Card styling */
+    .impact-card {
+        border-radius: 0.75rem; /* rounded-xl */
+        padding: 1.5rem; /* p-6 */
+        color: white;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .impact-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
 
-    {# --- AI Report Section --- #}
-    <div id="reportSection" class="mb-6 hidden">
-      <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">AI Waste Analysis Report</h3>
-      <div id="reportLoading" class="text-center p-4 text-gray-600 hidden">
-         <svg class="animate-spin h-5 w-5 mr-3 inline-block text-blue-600" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        Generating report, please wait...
-      </div>
-      <div id="reportError" class="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded relative mb-4 hidden" role="alert">
-        <strong class="font-bold block">Error Generating Report:</strong>
-        <span class="block sm:inline" id="reportErrorMessage"></span>
-      </div>
-      <div id="reportOutput" class="space-y-4"></div>
-    </div>
-    {# --- End Report Section --- #}
+    /* Gradient Themes */
+    .impact-card.theme-green { background: linear-gradient(135deg, #10b981, #059669); }
+    .impact-card.theme-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+    .impact-card.theme-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+    .impact-card.theme-yellow { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .impact-card.theme-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
 
+    .impact-card .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        opacity: 0.9;
+    }
+    .impact-card .card-icon svg {
+        width: 1.25rem; /* w-5 */
+        height: 1.25rem; /* h-5 */
+    }
+    .impact-card .card-title {
+        font-weight: 600; /* font-semibold */
+    }
+    .impact-card .card-metric {
+        font-size: 2.25rem; /* text-4xl */
+        font-weight: 800; /* font-extrabold */
+        margin-top: 0.5rem;
+        line-height: 1.2;
+    }
+    .impact-card .card-subtitle {
+        margin-top: 0.25rem;
+        opacity: 0.8;
+        font-size: 0.875rem; /* text-sm */
+    }
+    .impact-card .details-toggle {
+        margin-top: 1rem;
+        font-size: 0.75rem; /* text-xs */
+    }
+    .impact-card .details-toggle summary {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 9999px;
+        background-color: rgba(255,255,255,0.1);
+        transition: background-color 0.2s;
+        list-style: none; /* remove marker */
+    }
+     .impact-card .details-toggle summary::-webkit-details-marker { display: none; }
+    .impact-card .details-toggle summary:hover {
+        background-color: rgba(255,255,255,0.2);
+    }
+    .impact-card .details-content {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: rgba(0,0,0,0.15);
+        border-radius: 0.5rem;
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+    /* Simple prose styling for markdown content inside details */
+    .details-content ul {
+        list-style-type: disc;
+        padding-left: 1.25rem;
+        margin-top: 0.5rem;
+    }
+     .details-content li {
+        margin-bottom: 0.25rem;
+    }
 
-    {# --- Waste Records Table (Updated Project Column) --- #}
-     <h3 class="text-xl font-semibold text-gray-800 mb-3 mt-8">Waste Records Log</h3>
-     <div class="overflow-x-auto bg-white shadow-md rounded-lg">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project</th> {# Updated Header #}
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Wasted</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preventive Measures</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Recorded</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          {% for record in waste_records %}
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ record.material.material_name if record.material else 'N/A' }}</td>
-             {# --- Display Project Name from Relationship --- #}
-             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {% if record.project_rel %}
-                    {{ record.project_rel.name }} {# Use the relationship #}
-                {% elif record.project_name %} {# Fallback for old data (if kept in model) #}
-                    {{ record.project_name }} (Legacy)
-                {% else %}
-                    N/A
-                {% endif %}
-            </td>
-             {# --- End Project Name Display --- #}
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.quantity_wasted }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.material.unit if record.material else 'N/A' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.reason }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.preventive_measures or 'N/A' }}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_recorded.strftime('%Y-%m-%d %H:%M') if record.date_recorded else 'N/A' }}</td>
-          </tr>
-          {% endfor %}
-           {% if not waste_records %}
-            <tr>
-                <td colspan="7" class="px-6 py-4 text-center text-gray-500">No waste records found.</td>
-            </tr>
-            {% endif %}
-        </tbody>
-      </table>
-    </div>
-    {# --- End Waste Records Table --- #}
+</style>
 
-
-    {# --- Add Waste Modal (Updated Project Field) --- #}
-    <div id="addWasteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-      <div class="relative top-10 sm:top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-        {# Modal Header #}
-        <div class="flex justify-between items-center pb-3">
-          <h3 class="text-lg leading-6 font-medium text-gray-900">Add New Waste Record</h3>
-          <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal('addWasteModal')">
-             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
-          </button>
+<!-- Main content structure for waste page -->
+<div class="space-y-6">
+    <!-- Page Header & Action Buttons -->
+    <div class="flex flex-wrap justify-between items-center gap-4">
+        <h1 class="text-2xl font-bold text-gray-800">Waste Management</h1>
+        <div class="flex flex-wrap gap-3">
+            <button
+                type="button"
+                id="analyzeWasteBtn"
+                class="btn-primary btn-green flex items-center gap-2 px-4 py-2 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
+                </svg>
+                Analyze Waste
+            </button>
+            <button 
+                type="button" 
+                class="btn-primary flex items-center gap-2 px-4 py-2 text-sm" 
+                onclick="openModal('addWasteModal')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Add Waste Record
+            </button>
         </div>
-        {# Modal Body Form #}
-        <div class="mt-2 px-1 py-3">
-          <form id="addWasteForm" class="space-y-4">
-            {# Material Dropdown #}
-            <div>
-              <label for="waste_material_id" class="block text-sm font-medium text-gray-700 mb-1">Material <span class="text-red-500">*</span></label> {# Changed ID slightly #}
-              {# Note: This dropdown shows ALL materials. Filter based on selected project in JS #}
-              <select id="waste_material_id" name="material_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                 <option value="">Select Material</option>
-                {% for material in materials %} {# Assumes 'materials' includes project info #}
-                <option value="{{ material.id }}" data-project-id="{{ material.project_id }}">{{ material.material_name }} ({{ material.unit }}) - Project: {{ material.project.name }}</option>
+    </div>
+
+    <!-- Section to Display Waste Analysis Report -->
+    <div id="wasteReportSection" class="hidden">
+        <h2 class="text-xl font-semibold text-gray-700 mb-3 border-b pb-2">AI Waste Analysis Report</h2>
+        <div id="wasteReportLoading" class="text-center p-6 bg-white rounded-lg shadow text-gray-600 hidden">
+            <svg class="animate-spin h-6 w-6 mr-3 inline-block text-blue-600" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Generating waste analysis, please wait...
+        </div>
+        <div id="wasteReportError" class="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md relative mb-4 hidden" role="alert">
+            <strong class="font-bold block">Error Generating Report:</strong>
+            <span class="block sm:inline" id="wasteReportErrorMessage"></span>
+        </div>
+        <!-- Grid layout for the new impact cards -->
+        <div id="wasteReportOutput" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- AI Report Cards will be injected here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Waste Records Table -->
+    <h2 class="text-xl font-semibold text-gray-700 mb-3 mt-6">Waste Records Log</h2>
+    <div class="overflow-x-auto">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Material</th>
+                    <th>Project</th>
+                    <th>Quantity Wasted</th>
+                    <th>Unit</th>
+                    <th>Reason</th>
+                    <th>Preventive Measures</th>
+                    <th>Date Recorded</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for record in waste_records %}
+                <tr>
+                    <td class="font-medium">{{ record.material.material_name if record.material else 'N/A' }}</td>
+                    <td>
+                        {% if record.project_rel %}
+                            {{ record.project_rel.name }}
+                        {% elif record.project_name %} 
+                            {{ record.project_name }} (Legacy)
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ record.quantity_wasted }}</td>
+                    <td>{{ record.material.unit if record.material else 'N/A' }}</td>
+                    <td class="max-w-xs truncate" title="{{record.reason}}">{{ record.reason }}</td>
+                    <td class="max-w-xs truncate" title="{{record.preventive_measures or 'N/A'}}">{{ record.preventive_measures or 'N/A' }}</td>
+                    <td>{{ record.date_recorded.strftime('%Y-%m-%d %H:%M') if record.date_recorded else 'N/A' }}</td>
+                </tr>
                 {% endfor %}
-              </select>
-               <p class="mt-1 text-xs text-gray-500">Tip: Materials are linked to specific projects.</p>
-            </div>
-             {# --- Project Dropdown --- #}
-             <div>
-                <label for="waste_project_id" class="block text-sm font-medium text-gray-700 mb-1">Project <span class="text-red-500">*</span></label> {# Changed ID slightly #}
-                <select id="waste_project_id" name="project_id" required class="mt-1 block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    <option value="">Select Project</option>
-                    {% for project in projects %} {# Loop through projects passed from backend #}
-                    <option value="{{ project.id }}">{{ project.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-             {# --- End Project Dropdown --- #}
-            {# Quantity Wasted Input #}
-            <div>
-              <label for="quantity_wasted" class="block text-sm font-medium text-gray-700 mb-1">Quantity Wasted <span class="text-red-500">*</span></label>
-              <input type="number" id="quantity_wasted" name="quantity_wasted" step="any" required min="0.000001" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"> {# Allow smaller steps #}
-            </div>
-            {# Reason Textarea #}
-            <div>
-              <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">Reason for Waste <span class="text-red-500">*</span></label>
-              <textarea id="reason" name="reason" rows="3" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
-            </div>
-            {# Preventive Measures Textarea #}
-             <div>
-              <label for="preventive_measures" class="block text-sm font-medium text-gray-700 mb-1">Preventive Measures (Optional)</label>
-              <textarea id="preventive_measures" name="preventive_measures" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
-            </div>
-            {# Submit Button #}
-            <div class="pt-4">
-              <button type="submit" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Add Record
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+                {% if not waste_records %}
+                <tr>
+                    <td colspan="7" class="text-center text-gray-500 py-4">No waste records found.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
     </div>
-     {# --- End Add Waste Modal --- #}
-  </div>
 </div>
 
+<!-- Add Waste Modal -->
+<div id="addWasteModal" class="modal-backdrop hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Add New Waste Record</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('addWasteModal')">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+            </button>
+        </div>
+        <form id="addWasteForm">
+            <div class="modal-body space-y-4">
+                <div>
+                    <label for="waste_project_id" class="form-label">Project <span class="text-red-500">*</span></label>
+                    <select id="waste_project_id" name="project_id" required class="form-select">
+                        <option value="">Select Project</option>
+                        {% for project in projects %}
+                        <option value="{{ project.id }}">{{ project.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="waste_material_id" class="form-label">Material <span class="text-red-500">*</span></label>
+                    <select id="waste_material_id" name="material_id" required class="form-select">
+                        <option value="">Select Material (after selecting a project)</option>
+                        {% for material in materials %} 
+                        <option value="{{ material.id }}" data-project-id="{{ material.project_id }}">{{ material.material_name }} ({{ material.unit }}) - Project: {{ material.project.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Materials are filtered by the selected project.</p>
+                </div>
+                <div>
+                    <label for="quantity_wasted" class="form-label">Quantity Wasted <span class="text-red-500">*</span></label>
+                    <input type="number" id="quantity_wasted" name="quantity_wasted" step="any" required min="0.000001" class="form-input">
+                </div>
+                <div>
+                    <label for="reason" class="form-label">Reason for Waste <span class="text-red-500">*</span></label>
+                    <textarea id="reason" name="reason" rows="3" required class="form-textarea"></textarea>
+                </div>
+                <div>
+                    <label for="preventive_measures" class="form-label">Preventive Measures (Optional)</label>
+                    <textarea id="preventive_measures" name="preventive_measures" rows="2" class="form-textarea"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary mr-2" onclick="closeModal('addWasteModal')">Cancel</button>
+                <button type="submit" class="btn-primary">Add Record</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
 <script>
-// --- Modal Handling ---
-function openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); }
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.add('hidden');
-    const form = modal.querySelector('form');
-    if (form) form.reset();
+// Generic Modal Functions (from base.html or defined here)
+if (typeof openModal === 'undefined') {
+    function openModal(modalId) { const modal = document.getElementById(modalId); if (modal) modal.classList.remove('hidden'); }
+}
+if (typeof closeModal === 'undefined') {
+    function closeModal(modalId) { const modal = document.getElementById(modalId); if (modal) { modal.classList.add('hidden'); const form = modal.querySelector('form'); if (form) form.reset(); } }
 }
 
-// --- Optional: Filter Material Dropdown based on Project Selection ---
+// --- Filter Material Dropdown based on Project Selection ---
 const wasteProjectSelect = document.getElementById('waste_project_id');
 const wasteMaterialSelect = document.getElementById('waste_material_id');
-// Ensure options are correctly captured even if initially empty
-const allWasteMaterialOptions = wasteMaterialSelect ? Array.from(wasteMaterialSelect.options).slice(1) : [];
-
+let allWasteMaterialOptions = [];
+if (wasteMaterialSelect) {
+    allWasteMaterialOptions = Array.from(wasteMaterialSelect.options).slice(1);
+}
 if (wasteProjectSelect && wasteMaterialSelect) {
     wasteProjectSelect.addEventListener('change', function() {
         const selectedProjectId = this.value;
-        // Clear current material options (keep the first placeholder)
-        wasteMaterialSelect.innerHTML = '<option value="">Select Material</option>';
-
+        wasteMaterialSelect.innerHTML = '<option value="">Select Material (after selecting a project)</option>';
         if (selectedProjectId) {
-            // Filter and append materials matching the selected project
             allWasteMaterialOptions.forEach(option => {
                 if (option.dataset.projectId === selectedProjectId) {
                     wasteMaterialSelect.appendChild(option.cloneNode(true));
                 }
             });
         }
-         // Reset selected material when project changes
         wasteMaterialSelect.value = "";
     });
 }
 
-
-// --- Add Waste Form Submission (Updated) ---
-document.getElementById('addWasteForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const data = {};
-  let isValid = true;
-
-  formData.forEach((value, key) => {
-    const trimmedValue = value ? value.trim() : value;
-    if (key === 'material_id' || key === 'project_id') { // Include project_id
-        data[key] = trimmedValue === '' || trimmedValue === null ? null : parseInt(trimmedValue);
-        if(data[key] === null) isValid = false; // Both material and project are required
-    } else if (key === 'quantity_wasted') {
-        data[key] = trimmedValue === '' || trimmedValue === null ? null : parseFloat(trimmedValue);
-        if(data[key] === null || data[key] <= 0) isValid = false; // Must be positive
-    } else {
-      data[key] = trimmedValue;
-    }
-  });
-   data.preventive_measures = data.preventive_measures || null;
-   if (!data.reason) isValid = false; // Reason is required
-
-   if (!isValid) {
-       alert('Please select a project, a material belonging to that project, enter a positive quantity wasted, and provide a reason.');
-       return;
-   }
-
-  fetch('/api/waste', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data) // Send project_id
-  })
-  .then(response => { /* ... (error handling as before) ... */
-        if (response.ok) { return response.json(); }
-        else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}`); }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); }); }
-  })
-  .then(data => { closeModal('addWasteModal'); window.location.reload(); }) // Refresh page
-  .catch(error => { console.error('Error adding waste record:', error); alert(`Failed to add waste record: ${error.message}`); });
-});
-
-
-// --- AI Analysis Report Handling ---
-// (This part remains the same as the previous version for waste.html)
-const analyzeBtn = document.getElementById('analyzeWasteBtn');
-const reportSection = document.getElementById('reportSection');
-const reportOutputContainer = document.getElementById('reportOutput');
-const reportLoading = document.getElementById('reportLoading');
-const reportError = document.getElementById('reportError');
-const reportErrorMessage = document.getElementById('reportErrorMessage');
-analyzeBtn.addEventListener('click', () => { /* ... same fetch and render logic ... */
-    reportSection.classList.remove('hidden'); reportLoading.classList.remove('hidden'); reportOutputContainer.classList.add('hidden'); reportError.classList.add('hidden'); reportOutputContainer.innerHTML = ''; reportErrorMessage.textContent = '';
-    fetch('/api/debris/report')
-        .then(response => { if (!response.ok) { return response.json().then(err => { throw new Error(err.detail || `HTTP error! status: ${response.status}`); }).catch(() => { throw new Error(`HTTP error! status: ${response.status}`); }); } return response.json(); })
-        .then(data => { const reportMarkdown = data.report || 'No report content received.'; renderReportSections(reportMarkdown); reportOutputContainer.classList.remove('hidden'); }) // Use same render function
-        .catch(error => { console.error('Error fetching analysis report:', error); reportErrorMessage.textContent = error.message; reportError.classList.remove('hidden'); })
-        .finally(() => { reportLoading.classList.add('hidden'); });
-});
-function renderReportSections(markdown) { /* ... same rendering logic as before ... */
-    reportOutputContainer.innerHTML = ''; const sectionHeadings = ["Executive Summary", "Waste Analysis", "Disposal Options", "Reduction Strategies", "Conclusion & Caveats", "Report Error"]; const sections = markdown.split(/\n##\s+([^\n]+)/); let currentContent = sections[0].trim();
-    if (currentContent) { const infoDiv = document.createElement('div'); infoDiv.className = 'mb-4 text-sm text-gray-600 italic'; if (typeof marked !== 'undefined') { infoDiv.innerHTML = marked.parse(currentContent); } else { infoDiv.textContent = currentContent; } reportOutputContainer.appendChild(infoDiv); }
-    for (let i = 1; i < sections.length; i += 2) {
-        const heading = sections[i].trim(); const content = sections[i + 1] ? sections[i + 1].trim() : ''; const isCollapsible = heading !== "Executive Summary" && heading !== "Report Error"; const sectionCard = document.createElement('div'); sectionCard.className = 'bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden mb-4'; const headerElement = isCollapsible ? document.createElement('summary') : document.createElement('div'); headerElement.className = 'px-4 py-3 bg-gray-50 border-b border-gray-200 cursor-pointer font-semibold text-gray-700';
-        if (isCollapsible) { headerElement.className += ' list-none flex justify-between items-center'; const headingSpan = document.createElement('span'); headingSpan.textContent = heading; headerElement.appendChild(headingSpan); const chevronSpan = document.createElement('span'); chevronSpan.className = 'text-gray-400 text-xs transition-transform transform details-marker'; headerElement.appendChild(chevronSpan); }
-        else { headerElement.textContent = heading; if(heading === "Report Error") { headerElement.classList.remove('bg-gray-50', 'text-gray-700'); headerElement.classList.add('bg-red-100', 'text-red-800'); } }
-        const contentDiv = document.createElement('div'); contentDiv.className = 'p-4 prose prose-sm max-w-none'; if (typeof marked !== 'undefined') { contentDiv.innerHTML = marked.parse(content); } else { contentDiv.textContent = content; }
-        if (isCollapsible) { const detailsElement = document.createElement('details'); detailsElement.appendChild(headerElement); detailsElement.appendChild(contentDiv); sectionCard.appendChild(detailsElement); }
-        else { sectionCard.appendChild(headerElement); sectionCard.appendChild(contentDiv); }
-        reportOutputContainer.appendChild(sectionCard);
-    }
+// --- Add Waste Form Submission ---
+const addWasteForm = document.getElementById('addWasteForm');
+if (addWasteForm) {
+    addWasteForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const data = {};
+        let isValid = true;
+        formData.forEach((value, key) => {
+            const trimmedValue = value ? value.trim() : value;
+            if (key === 'material_id' || key === 'project_id') {
+                data[key] = trimmedValue === '' ? null : parseInt(trimmedValue);
+                if(data[key] === null) isValid = false; 
+            } else if (key === 'quantity_wasted') {
+                data[key] = trimmedValue === '' ? null : parseFloat(trimmedValue);
+                if(data[key] === null || data[key] <= 0) isValid = false;
+            } else { data[key] = trimmedValue; }
+        });
+        data.preventive_measures = data.preventive_measures || null;
+        if (!data.reason) { console.error('Reason for waste is required.'); isValid = false; }
+        if (!isValid) { console.error('Please fill all required fields correctly.'); return; }
+        fetch('/api/waste', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(response => { 
+            if (response.ok) { return response.json(); }
+            else { return response.json().then(err => { throw new Error(err.detail || `Error ${response.status}`); }); }
+        })
+        .then(dataResponse => { closeModal('addWasteModal'); window.location.reload(); })
+        .catch(error => { console.error('Error adding waste record:', error); });
+    });
 }
 
+// --- AI Waste Analysis Report Handling ---
+const analyzeWasteBtn = document.getElementById('analyzeWasteBtn');
+const wasteReportSection = document.getElementById('wasteReportSection');
+const wasteReportOutputContainer = document.getElementById('wasteReportOutput');
+const wasteReportLoading = document.getElementById('wasteReportLoading');
+const wasteReportError = document.getElementById('wasteReportError');
+const wasteReportErrorMessage = document.getElementById('wasteReportErrorMessage');
+
+const wasteSectionIcons = {
+    "executive summary": '<svg class="h-5 w-5 card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    "waste analysis": '<svg class="h-5 w-5 card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>',
+    "disposal options": '<svg class="h-5 w-5 card-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106A48.554 48.554 0 0 0 12 5.25c-2.295 0-4.516.308-6.75.865a1.125 1.125 0 0 0-.987 1.106v.958m15.372-1.5H15M4.872 7.073L3.375 14.25m0 0A2.25 2.25 0 0 0 5.625 12h12.75c1.243 0 2.25-1.007 2.25-2.25V5.25"/> </svg>',
+    "reduction strategies": '<svg class="h-5 w-5 card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>',
+    "report error": '<svg class="h-5 w-5 card-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>'
+};
+const wasteSectionThemes = {
+    "executive summary": "theme-blue",
+    "waste analysis": "theme-green",
+    "disposal options": "theme-yellow",
+    "reduction strategies": "theme-purple",
+    "report error": "theme-red"
+};
+
+if (analyzeWasteBtn) {
+    analyzeWasteBtn.addEventListener('click', () => {
+        wasteReportSection.classList.remove('hidden');
+        wasteReportLoading.classList.remove('hidden');
+        wasteReportOutputContainer.classList.add('hidden');
+        wasteReportError.classList.add('hidden');
+        wasteReportOutputContainer.innerHTML = '';
+        wasteReportErrorMessage.textContent = '';
+
+        fetch('/api/debris/report')
+            .then(response => {
+                if (!response.ok) { throw new Error('Network response was not ok'); }
+                return response.json();
+            })
+            .then(data => {
+                const reportMarkdown = data.report || 'No report content received.';
+                renderWasteReportSections(reportMarkdown); 
+                wasteReportOutputContainer.classList.remove('hidden');
+            })
+            .catch(error => {
+                console.error('Error fetching waste analysis report:', error);
+                wasteReportErrorMessage.textContent = error.message;
+                wasteReportError.classList.remove('hidden');
+                // Render an error card
+                renderWasteReportSections(`## Report Error\n${error.message}`);
+                wasteReportOutputContainer.classList.remove('hidden');
+            })
+            .finally(() => {
+                wasteReportLoading.classList.add('hidden');
+            });
+    });
+}
+
+function parseMetric(text) {
+    // Look for patterns like "X tonnes", "Y%", "Z strategies"
+    const patterns = [
+        /(\d+\s*tonnes?)/i,
+        /(\d+\s*kg)/i,
+        /(\d+\s*m³?)/i,
+        /(\d+\s*strategies?)/i,
+        /(\d+%\s*reduction)/i,
+        /(\d+%\s*decrease)/i,
+        /(\d+\s*materials?)/i
+    ];
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+            return {
+                metric: match[1],
+                subtitle: text.split('. ')[0] // Return the first sentence as subtitle
+            };
+        }
+    }
+    // Fallback if no specific metric is found
+    // Extract the first sentence as the subtitle.
+    const firstSentence = text.split('. ')[0];
+    return { metric: 'View Details', subtitle: firstSentence };
+}
+
+function renderWasteReportSections(markdown) {
+    wasteReportOutputContainer.innerHTML = ''; // Clear previous content
+    // The splitting logic assumes the markdown starts with ## headings.
+    // We will ignore anything before the first ## heading.
+    const sections = markdown.split(/\n##\s+/);
+    
+    // Start loop from 1 to ignore the preamble (timestamp, etc.)
+    for (let i = 1; i < sections.length; i++) {
+        const sectionText = sections[i];
+        const endOfHeading = sectionText.indexOf('\n');
+        const heading = sectionText.substring(0, endOfHeading).trim();
+        const content = sectionText.substring(endOfHeading).trim();
+        
+        const themeClass = wasteSectionThemes[heading.toLowerCase()] || 'theme-blue';
+        const iconHTML = wasteSectionIcons[heading.toLowerCase()] || '';
+        const parsed = parseMetric(content);
+
+        const card = document.createElement('div');
+        card.className = `impact-card ${themeClass}`;
+        
+        card.innerHTML = `
+            <div class="card-header">
+                <span class="card-icon">${iconHTML}</span>
+                <h3 class="card-title">${heading}</h3>
+            </div>
+            <p class="card-metric">${parsed.metric}</p>
+            <p class="card-subtitle">${parsed.subtitle}</p>
+            <details class="details-toggle">
+                <summary>Show details</summary>
+                <div class="details-content prose">
+                    ${marked.parse(content)}
+                </div>
+            </details>
+        `;
+        wasteReportOutputContainer.appendChild(card);
+    }
+}
 </script>
 {% endblock %}
-

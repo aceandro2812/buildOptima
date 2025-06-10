@@ -1,67 +1,255 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Construction Material Manager{% endblock %}
+{% block title %}Dashboard - BuildOptima{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-    <div class="px-4 py-6 sm:px-0">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Inventory Section -->
-            <div class="lg:col-span-2">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-semibold text-gray-900">Inventory</h2>
-                </div>
-                <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reorder Point</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                {% for item in inventory %}
-                                <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ item.material_name }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.quantity }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.unit }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.reorder_point }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.last_updated.strftime('%Y-%m-%d %H:%M') }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+<div class="min-h-screen bg-gradient-to-br from-slate-100 to-blue-100 flex flex-col dashboard-container">
+    <header class="bg-white shadow-md border-b fixed top-0 left-0 right-0 z-30 dashboard-header">
+        <div class="px-6 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-gradient-to-r from-blue-600 to-indigo-600 p-2 rounded-lg">
+                        <svg class="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">BuildOptima Dashboard</h1>
+                        <p class="text-gray-600 text-xs">Intelligent Construction Management</p>
                     </div>
                 </div>
-            </div>
-
-            <!-- Alerts Section -->
-            <div>
-                <h2 class="text-2xl font-semibold text-gray-900 mb-6">Alerts</h2>
-                <div class="space-y-4">
-                    {% for alert in alerts %}
-                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-md">
-                        <div class="flex">
-                            <div class="flex-1">
-                                <h5 class="text-sm font-medium text-yellow-800">{{ alert.alert_type|title }}</h5>
-                                <p class="mt-1 text-sm text-yellow-700">{{ alert.message }}</p>
-                                <p class="mt-2 text-xs text-yellow-600">{{ alert.date_created.strftime('%Y-%m-%d %H:%M') }}</p>
-                            </div>
-                        </div>
+                
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-3 py-1.5 rounded-full text-xs font-medium">
+                        <svg class="h-4 w-4" id="ai-agent-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                        <span>AI Agent</span>
+                        <div id="ai-agent-status-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
                     </div>
-                    {% endfor %}
-                    {% if not alerts %}
-                    <div class="bg-gray-50 rounded-md p-4">
-                        <p class="text-sm text-gray-500">No active alerts</p>
+                    
+                    <div class="relative">
+                        <svg class="h-5 w-5 text-gray-600 cursor-pointer hover:text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                        {% if alerts and alerts|length > 0 %}
+                        <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{{ alerts|length }}</span>
+                        {% endif %}
                     </div>
-                    {% endif %}
+                    
+                    <svg class="h-5 w-5 text-gray-600 cursor-pointer hover:text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 </div>
             </div>
         </div>
+    </header>
+
+    <div class="flex flex-1 pt-16"> <aside class="w-56 bg-white shadow-lg min-h-full dashboard-sidebar fixed-sidebar">
+            <nav class="p-3 space-y-1.5">
+                {% set current_path = request.url.path %}
+                {% macro nav_link(id, label, icon_svg, target_url='#overview-section') %}
+                <a href="{{ target_url }}"
+                   data-tab-id="{{ id }}"
+                   class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-md text-sm transition-colors
+                          {{ 'bg-blue-50 text-blue-700 border-r-4 border-blue-600 font-semibold' if id == 'overview' else 'text-gray-600 hover:bg-gray-100 hover:text-gray-800 font-medium' }}">
+                    {{ icon_svg | safe }}
+                    <span>{{ label }}</span>
+                </a>
+                {% endmacro %}
+
+                {{ nav_link('overview', 'Overview', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>', '#overview-section') }}
+                {{ nav_link('projects_nav', 'Projects', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>', url_for('projects_page')) }}
+                {{ nav_link('materials_nav', 'Materials', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>', url_for('materials_page')) }}
+                {{ nav_link('suppliers_nav', 'Suppliers', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>', url_for('suppliers_page')) }}
+                {{ nav_link('consumption_nav', 'Consumption', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h18m-7.5-3.75h7.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25h-7.5a2.25 2.25 0 0 0-2.25 2.25v7.5a2.25 2.25 0 0 0 2.25 2.25Z" /></svg>', url_for('consumption_page')) }}
+                {{ nav_link('costs_nav', 'Costs', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V6.75m0 0A.75.75 0 0 0 2.25 6m0 0H3m18 0h-.75a.75.75 0 0 0-.75.75v.75M4.5 16.5h15M4.5 12h15M4.5 7.5h15" /></svg>', url_for('costs_page')) }}
+                {{ nav_link('waste_nav', 'Waste', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12.56 0c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>', url_for('waste_page')) }}
+
+                {{ nav_link('analytics', 'Analytics', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>', '#') }}
+                 {{ nav_link('impact_analysis', 'Impact Analysis', '<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"></path></svg>', '#') }}
+                 </nav>
+        </aside>
+
+        <main class="flex-1 p-6 dashboard-main-content ml-56"> <div id="overview-section" class="tab-content space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-blue-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-xs font-medium uppercase">Active Projects</p>
+                                <p class="text-2xl font-bold text-blue-600 mt-1">
+                                    {{ projects|length if projects else '0' }}
+                                </p>
+                                <p class="text-gray-500 text-xs mt-1">
+                                    </p>
+                            </div>
+                            <svg class="h-7 w-7 text-blue-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        </div>
+                    </div>
+                    <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-green-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-xs font-medium uppercase">Resource Utilization</p>
+                                <p class="text-2xl font-bold text-green-600 mt-1">78%</p>
+                                <p class="text-gray-500 text-xs mt-1">Optimal efficiency</p>
+                            </div>
+                            <svg class="h-7 w-7 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                        </div>
+                    </div>
+                    <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-yellow-500">
+                         <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-xs font-medium uppercase">Equipment Status</p>
+                                <p class="text-2xl font-bold text-yellow-600 mt-1">N/A</p> <p class="text-gray-500 text-xs mt-1">X in maintenance</p>
+                            </div>
+                            <svg class="h-7 w-7 text-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        </div>
+                    </div>
+                    <div class="stat-card bg-white rounded-lg shadow p-5 border-l-4 border-red-500">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-500 text-xs font-medium uppercase">Budget Health</p>
+                                <p class="text-2xl font-bold text-red-600 mt-1">N/A</p> <p class="text-gray-500 text-xs mt-1">X% over budget</p>
+                            </div>
+                            <svg class="h-7 w-7 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"></path><rect width="16" height="12" x="4" y="8" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg>
+                        <h2 class="text-xl font-semibold">AI Agent Recommendations</h2>
+                    </div>
+                    <div class="grid gap-3 text-sm">
+                        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center space-x-3 hover:bg-white/20 transition-colors">
+                            <svg class="h-4 w-4 text-yellow-300 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            <span>Optimize concrete delivery schedule for Project Alpha.</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center space-x-3 hover:bg-white/20 transition-colors">
+                             <svg class="h-4 w-4 text-yellow-300 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            <span>Reallocate heavy machinery from completed Phase 2 to Phase 3.</span>
+                        </div>
+                        <div class="bg-white/10 backdrop-blur-sm rounded-lg p-3 flex items-center space-x-3 hover:bg-white/20 transition-colors">
+                            <svg class="h-4 w-4 text-yellow-300 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                            <span>Weather advisory: Delay outdoor work by 2 days due to forecasted rain.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Project Status</h2>
+                        <div class="space-y-4">
+                            {% for project_item in projects[:2] %} {# Display first 2 projects or placeholders #}
+                            <div class="project-card bg-gray-50 rounded-lg shadow p-4 hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-3">
+                                    <h3 class="font-semibold text-gray-700">{{ project_item.name if project_item else 'Project Alpha' }}</h3>
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium 
+                                        {% if project_item and project_item.status == 'Completed' %}bg-green-100 text-green-700
+                                        {% elif project_item and project_item.status == 'In Progress' %}bg-blue-100 text-blue-700
+                                        {% elif project_item and project_item.status == 'On Hold' %}bg-yellow-100 text-yellow-700
+                                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                        {{ project_item.status if project_item else 'On Track' }}
+                                    </span>
+                                </div>
+                                <div class="space-y-2 text-xs">
+                                    <div>
+                                        <div class="flex justify-between"><span>Progress</span><span>{{ 75 if loop.first else 45 }}%</span></div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1"><div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ 75 if loop.first else 45 }}%;"></div></div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between"><span>Budget Used</span><span>{{ 85 if loop.first else 60 }}%</span></div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                                            <div class="h-1.5 rounded-full 
+                                            {% if (85 if loop.first else 60) > 90 %}bg-red-500
+                                            {% elif (85 if loop.first else 60) > 70 %}bg-yellow-500
+                                            {% else %}bg-green-500{% endif %}" style="width: {{ 85 if loop.first else 60 }}%;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                                <p class="text-gray-500">No project data available.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Alerts</h2>
+                        <div class="space-y-3">
+                            {% if alerts %}
+                                {% for alert_item in alerts %}
+                                <div class="notification-item flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    {% if alert_item.alert_type|lower == 'low_stock' %}
+                                    <svg class="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    {% elif alert_item.alert_type|lower == 'info' %} <svg class="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0"  xmlns="http://www.w3.org/2000/svg"  width="24"  height="24"  viewBox="0 0 24 24"  fill="none"  stroke="currentColor"  stroke-width="2"  stroke-linecap="round"  stroke-linejoin="round">  <circle cx="12" cy="12" r="10" />  <line x1="12" y1="16" x2="12" y2="12" />  <line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                                    {% else %}
+                                    <svg class="h-5 w-5 text-yellow-500 mt-0.5 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                    {% endif %}
+                                    <div class="flex-1">
+                                        <p class="text-sm text-gray-700 font-medium">{{ alert_item.alert_type|title }}</p>
+                                        <p class="text-sm text-gray-600">{{ alert_item.message }}</p>
+                                        <p class="text-xs text-gray-400 mt-1">{{ alert_item.date_created.strftime('%Y-%m-%d %H:%M') if alert_item.date_created else 'N/A' }}</p>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                            <div class="text-center py-4">
+                                <svg class="mx-auto h-10 w-10 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" /></svg>
+                                <p class="mt-2 text-sm font-medium text-gray-500">No active alerts</p>
+                                <p class="text-xs text-gray-400">All systems clear for now.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </main>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const aiAgentStatusDot = document.getElementById('ai-agent-status-dot');
+    const aiAgentIcon = document.getElementById('ai-agent-icon');
+    let aiAgentActive = false;
+
+    if (aiAgentStatusDot) {
+        setInterval(() => {
+            aiAgentActive = !aiAgentActive;
+            aiAgentStatusDot.classList.toggle('bg-green-400', aiAgentActive);
+            aiAgentStatusDot.classList.toggle('bg-gray-400', !aiAgentActive);
+            if (aiAgentIcon) {
+                aiAgentIcon.classList.toggle('pulsing-icon', aiAgentActive);
+            }
+        }, 3000);
+    }
+
+    // Basic Tab Switching Logic Placeholder (if all content were on this single page)
+    // const sidebarLinks = document.querySelectorAll('.dashboard-sidebar [data-tab-id]');
+    // const tabContents = document.querySelectorAll('.main-content .tab-content');
+
+    // sidebarLinks.forEach(link => {
+    //     link.addEventListener('click', function(event) {
+    //         if (this.getAttribute('href').startsWith('#')) { // Only handle internal tabs
+    //             event.preventDefault();
+    //             const tabId = this.dataset.tabId;
+
+    //             sidebarLinks.forEach(s_link => {
+    //                 s_link.classList.remove('bg-blue-50', 'text-blue-700', 'border-blue-600', 'font-semibold');
+    //                 s_link.classList.add('text-gray-600', 'hover:bg-gray-100', 'font-medium');
+    //             });
+    //             this.classList.add('bg-blue-50', 'text-blue-700', 'border-blue-600', 'font-semibold');
+    //             this.classList.remove('text-gray-600', 'hover:bg-gray-100', 'font-medium');
+                
+    //             tabContents.forEach(content => {
+    //                 if (content.id === tabId + '-section') {
+    //                     content.style.display = 'block';
+    //                 } else {
+    //                     content.style.display = 'none';
+    //                 }
+    //             });
+    //         }
+    //     });
+    // });
+
+    // // Initially show the overview tab
+    // document.querySelector('[data-tab-id="overview"]')?.click();
+});
+</script>
 {% endblock %}
