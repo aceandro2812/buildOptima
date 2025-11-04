@@ -1,31 +1,29 @@
 # schemas.py
 
-from pydantic import BaseModel, Field # Ensure Field is imported
-from datetime import datetime, date # Added date
-from typing import Optional, List # Added List if needed elsewhere
+from pydantic import BaseModel, Field
+from datetime import datetime, date
+from typing import Optional, List
 
 # --- Inventory Schemas (Updated) ---
 class InventoryBase(BaseModel):
     material_name: str = Field(..., min_length=1)
-    quantity: float = Field(..., ge=0) # Quantity should not be negative
+    quantity: float = Field(..., ge=0)
     unit: str = Field(..., min_length=1)
-    reorder_point: float = Field(..., ge=0) # Reorder point should not be negative
-    supplier_id: Optional[int] = None # Supplier might be optional
-    project_id: int # Link to project (Required as per models.py)
+    reorder_point: float = Field(..., ge=0)
+    supplier_id: Optional[int] = None
+    project_id: int
 
 class InventoryCreate(InventoryBase):
-    # project_id is required via InventoryBase
     pass
 
 class InventoryRead(InventoryBase):
     id: int
     last_updated: Optional[datetime] = None
-    # Include related names for convenience
     supplier_name: Optional[str] = None
-    project_name: Optional[str] = None # Populated from project.name
+    project_name: Optional[str] = None
 
     class Config:
-        from_attributes = True # Enable ORM mode for Pydantic V2
+        from_attributes = True
 
 # --- Supplier Schemas ---
 class SupplierBase(BaseModel):
@@ -34,13 +32,12 @@ class SupplierBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
-    lead_time_days: Optional[int] = Field(None, gt=0) # If provided, must be > 0
-    reliability_rating: Optional[float] = Field(None, ge=0, le=5) # Rating 0-5
+    lead_time_days: Optional[int] = Field(None, gt=0)
+    reliability_rating: Optional[float] = Field(None, ge=0, le=5)
 
 class SupplierCreate(SupplierBase):
     name: str = Field(..., min_length=1)
-    # Make other fields required for creation if necessary
-    contact_person: Optional[str] = None # Keep optional based on user's model
+    contact_person: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
@@ -48,7 +45,6 @@ class SupplierCreate(SupplierBase):
     reliability_rating: Optional[float] = Field(None, ge=0, le=5)
 
 class SupplierUpdate(SupplierBase):
-    # All fields are optional during update
     pass
 
 class SupplierRead(SupplierBase):
@@ -56,24 +52,23 @@ class SupplierRead(SupplierBase):
     class Config:
         from_attributes = True
 
-# --- Consumption Schemas (Updated) ---
+# --- Consumption Schemas (UPDATED: project_id optional) ---
 class ConsumptionBase(BaseModel):
     material_id: int
-    project_id: int # Link to Project ID (Required as per models.py)
-    quantity_used: float = Field(..., gt=0) # Must consume positive amount
+    # Make project_id optional so clients can omit it and server can infer from material
+    project_id: Optional[int] = None
+    quantity_used: float = Field(..., gt=0)
     notes: Optional[str] = None
-    # Removed old 'project: str' field
 
 class ConsumptionCreate(ConsumptionBase):
-    # date_used defaults in the model or can be set here if needed
+    # date_used provided optionally
     date_used: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 class ConsumptionRead(ConsumptionBase):
     id: int
     date_used: datetime
-    # Add related names
-    material_name: Optional[str] = None # Populated from material relationship
-    project_name: Optional[str] = None # Populated from project_rel.name
+    material_name: Optional[str] = None
+    project_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -81,22 +76,19 @@ class ConsumptionRead(ConsumptionBase):
 # --- Cost Schemas ---
 class CostBase(BaseModel):
     material_id: int
-    supplier_id: Optional[int] = None # Allow optional supplier
+    supplier_id: Optional[int] = None
     unit_price: float = Field(..., ge=0)
     quantity_purchased: float = Field(..., gt=0)
-    total_cost: Optional[float] = Field(None, ge=0) # Calculated if None
-    date_recorded: Optional[datetime] = None # Defaults in model/CRUD
+    total_cost: Optional[float] = Field(None, ge=0)
+    date_recorded: Optional[datetime] = None
     notes: Optional[str] = None
 
 class CostCreate(CostBase):
-     # Make supplier required for creation if needed, else keep optional from Base
-     # supplier_id: int
-     pass # Inherits optional supplier_id from Base
+    pass
 
 class CostRead(CostBase):
     id: int
-    date_recorded: datetime # Ensure date is included
-    # Add related names
+    date_recorded: datetime
     material_name: Optional[str] = None
     supplier_name: Optional[str] = None
 
@@ -106,22 +98,19 @@ class CostRead(CostBase):
 # --- Waste Schemas (Updated) ---
 class WasteBase(BaseModel):
     material_id: int
-    project_id: int # Link to Project ID (Required as per models.py)
-    quantity_wasted: float = Field(..., gt=0) # Must waste positive amount
+    project_id: int
+    quantity_wasted: float = Field(..., gt=0)
     reason: str = Field(..., min_length=1)
     preventive_measures: Optional[str] = None
-    # Removed old 'project_name: str' field
 
 class WasteCreate(WasteBase):
-    # date_recorded defaults in the model
     pass
 
 class WasteRead(WasteBase):
     id: int
     date_recorded: datetime
-    # Add related names
-    material_name: Optional[str] = None # Populated from material relationship
-    project_name: Optional[str] = None # Populated from project_rel.name
+    material_name: Optional[str] = None
+    project_name: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -131,7 +120,7 @@ class AlertBase(BaseModel):
     material_id: int
     alert_type: str = Field(..., min_length=1)
     message: str = Field(..., min_length=1)
-    is_active: bool = True # Use bool
+    is_active: bool = True
 
 class AlertCreate(AlertBase):
     pass
@@ -156,11 +145,9 @@ class ProjectCreate(ProjectBase):
     pass
 
 class ProjectUpdate(ProjectBase):
-    # All fields optional on update, but if name is provided, it must be valid
     name: Optional[str] = Field(None, min_length=1, description="New name for the project")
 
 class ProjectRead(ProjectBase):
     id: int
     class Config:
         from_attributes = True
-
