@@ -37,6 +37,8 @@ from crud import (
 # --- Import Agent Functions (Original Approach) ---
 from agents.debris_agent import run_debris_analysis_agent
 from agents.inventory_agent import run_inventory_analysis_agent
+from agents.procurement_agent import run_procurement_advisor
+
 
 # --- Basic Logging Setup ---
 logging.basicConfig(level=logging.INFO) # Enable basic logging
@@ -410,3 +412,17 @@ async def api_get_resource_limits_report(project_id: int, db: Session = Depends(
     except Exception as e:
         logger.exception(f"Error generating resource limits report for project {project_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate resource limits report.")
+    
+    
+@app.get("/api/ai/procurement", response_class=JSONResponse, tags=["AI Agents"])
+async def api_get_procurement_advice(project_id: int, lookback_days: int = 90):
+    """
+    Returns procurement suggestions and LLM explanations for the given project.
+    Example: /api/ai/procurement?project_id=1&lookback_days=90
+    """
+    try:
+        report = run_procurement_advisor(project_id, lookback_days=lookback_days)
+        return JSONResponse(content=report)
+    except Exception as e:
+        logger.exception("Error running procurement advisor", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

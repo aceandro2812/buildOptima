@@ -1110,3 +1110,173 @@ def get_resource_limits_report(db: Session, project_id: int):
     # Optionally sort report_items by variance_percent desc for easy consumption
     report_items_sorted = sorted(report_items, key=lambda r: (r["variance_percent"] if r["variance_percent"] is not None else -9999), reverse=True)
     return {"items": report_items_sorted, "summary": summary}
+
+# ---------- Procurement advisor helpers ----------
+import math
+import statistics
+from datetime import timedelta
+
+def _get_consumption_history(db: Session, material_id: int, days: int = 90):
+    """
+    Return list of daily consumption quantities for the last `days` days.
+    We'll query Consumption.date_used and sum quantity_used by day.
+    """
+    from sqlalchemy import func, cast, Date
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    rows = db.query(
+        func.date(Consumption.date_used).label('d'),
+        func.coalesce(func.sum(Consumption.quantity_used), 0).label('qty')
+    ).filter(
+        Consumption.material_id == material_id,
+        Consumption.date_used >= cutoff
+    ).group_by(func.date(Consumption.date_used)).order_by(func.date(Consumption.date_used)).all()
+    # rows -> list of (d, qty)
+    return [float(r.qty) for r in rows]
+
+def estimate_daily_demand(consumption_series: list):
+    """Return average daily demand and std dev from series (list of daily quantities)."""
+    if not consumption_series:
+        return 0.0, 0.0
+    avg = statistics.mean(consumption_series)
+    stdev = statistics.pstdev(consumption_series) if len(consumption_series) > 1 else 0.0
+    return float(avg), float(stdev)
+
+def compute_eoq(D, S, H):
+    """
+    EOQ = sqrt(2 * D * S / H)
+    D = demand rate (units per year) - we'll annualize daily demand * 365
+    S = ordering/setup cost per order (we'll use a default or config)
+    H = holding cost per unit per year (use % of unit price or config)
+    Returns EOQ (float) or None if insufficient data.
+    """
+    try:
+        if D <= 0 or S <= 0 or H <= 0:
+            return None
+        return math.sqrt((2.0 * D * S) / H)
+    except Exception:
+        return None
+
+def compute_safety_stock(avg_daily_demand, demand_std_dev, lead_time_days, lead_time_std=0.0, service_level_z=1.65):
+    """
+    Basic safety stock formula (covering demand variability):
+      safety_stock = Z * sigma_demand * sqrt(lead_time)
+    More advanced: include lead time variability: Z * sqrt((sigma_demand^2 * L) + (avg_demand^2 * sigma_lead^2))
+    We'll implement the latter if lead_time_std provided.
+    service_level_z: default about 95% -> ~1.65
+    """
+    try:
+        L = max(lead_time_days, 1e-6)
+        sigma_d = float(demand_std_dev)
+        sigma_L = float(lead_time_std or 0.0)
+        mu = float(avg_daily_demand)
+        if sigma_L and sigma_L > 0:
+            safety = service_level_z * math.sqrt((sigma_d ** 2) * L + (mu ** 2) * (sigma_L ** 2))
+        else:
+            safety = service_level_z * sigma_d * math.sqrt(L)
+        return float(safety)
+    except Exception:
+        return 0.0
+
+def compute_reorder_point(avg_daily_demand, lead_time_days, safety_stock):
+    # Demand during lead time + safety stock
+    return float(avg_daily_demand * lead_time_days + (safety_stock or 0.0))
+
+def rank_suppliers_for_material(db: Session, material_id: int):
+    """
+    Return list of suppliers with a composite score based on:
+      - avg unit price (lower better)
+      - lead_time_days (lower better)
+      - reliability_rating (higher better)
+    If supplier has no price, we still include them but deprioritize.
+    """
+    # gather suppliers linked to this material (inventory entries across projects)
+    suppliers = db.query(Supplier).all()
+    scored = []
+    for s in suppliers:
+        # estimate avg unit price for this supplier for this material (from Cost records)
+        avg_price_row = db.query(func.coalesce(func.avg(Cost.unit_price), None)).filter(Cost.supplier_id == s.id, Cost.material_id == material_id).scalar()
+        avg_price = float(avg_price_row) if avg_price_row else None
+        lead = s.lead_time_days
+        rel = s.reliability_rating if s.reliability_rating is not None else 0.0
+        # compute score: higher is better
+        # Normalize components with simple heuristics
+        price_score = (1.0 / avg_price) if avg_price and avg_price > 0 else 0.0
+        lead_score = (1.0 / (lead + 1)) if lead is not None else 0.0
+        rel_score = rel / 5.0  # 0..1
+        # weights: reliability 40%, price 35%, lead 25%
+        score = 0.4 * rel_score + 0.35 * price_score + 0.25 * lead_score
+        scored.append({
+            "supplier_id": s.id,
+            "supplier_name": s.name,
+            "lead_time_days": lead,
+            "reliability_rating": rel,
+            "avg_unit_price": avg_price,
+            "score": round(score, 4)
+        })
+    # sort desc
+    scored_sorted = sorted(scored, key=lambda x: x["score"], reverse=True)
+    return scored_sorted
+
+def get_procurement_suggestions(db: Session, project_id: int, lookback_days: int = 90, service_level_z: float = 1.65):
+    """
+    Returns list of suggestion dicts for items in the project:
+      - current stock, daily demand, stddev, safety_stock, ROP, recommended order qty (EOQ or ROP*some factor)
+    """
+    project = get_project_by_id(db, project_id)
+    if not project:
+        raise ValueError(f"Project {project_id} not found")
+    items = get_inventory(db, project_id=project_id)
+    suggestions = []
+    for it in items:
+        # get consumption history
+        series = _get_consumption_history(db, it.id, days=lookback_days)
+        avg_daily, stdev_daily = estimate_daily_demand(series)
+        # lead time default: supplier lead_time if supplier exists else 7 days
+        lead_time = it.supplier.lead_time_days if it.supplier and it.supplier.lead_time_days else 7
+        # lead time std: assume 1/3 of lead_time as rough proxy if not provided
+        lead_time_std = max(1.0, lead_time * 0.33)
+        safety = compute_safety_stock(avg_daily, stdev_daily, lead_time, lead_time_std, service_level_z=service_level_z)
+        reorder_pt = compute_reorder_point(avg_daily, lead_time, safety)
+        days_of_stock = (it.quantity / avg_daily) if avg_daily > 0 else None
+        # EOQ inputs: annual demand D, ordering cost S (default), holding cost H (default using estimated unit price)
+        D = avg_daily * 365.0
+        S = 200.0  # default order cost in currency units — you may make this configurable
+        # holding cost: assume 20% of unit price per year if unit price known
+        unit_price = None
+        # prefer latest cost unit_price
+        latest_cost = db.query(Cost).filter(Cost.material_id == it.id).order_by(Cost.date_recorded.desc()).first()
+        if latest_cost:
+            unit_price = latest_cost.unit_price
+        elif it.estimated_unit_price:
+            unit_price = it.estimated_unit_price
+        H = (0.2 * unit_price) if unit_price is not None else None
+        eoq = compute_eoq(D, S, H) if H else None
+        # fallback recommended qty: max( eoq, reorder_pt * 1.5 ) or at least to cover lead time + safety
+        rec_qty = None
+        if eoq and eoq > 0:
+            rec_qty = max(eoq, reorder_pt * 1.5)
+        else:
+            # fallback order enough to refill to estimated quantity or to cover lead time*avg + safety
+            target = it.estimated_quantity if it.estimated_quantity else max(avg_daily * lead_time * 3, reorder_pt * 2)
+            rec_qty = max(0.0, target - it.quantity)
+        # supplier ranking
+        suppliers_ranked = rank_suppliers_for_material(db, it.id)
+        # short reason
+        reason = f"Avg daily demand {avg_daily:.2f}, stdev {stdev_daily:.2f}, lead_time {lead_time}d. Reorder point {reorder_pt:.2f}."
+        suggestions.append({
+            "material_id": it.id,
+            "material_name": it.material_name,
+            "current_quantity": float(it.quantity),
+            "days_of_stock": None if days_of_stock is None else round(days_of_stock, 2),
+            "recommended_order_qty": round(float(rec_qty), 2) if rec_qty is not None else None,
+            "reorder_point": round(float(reorder_pt), 2),
+            "safety_stock": round(float(safety), 2),
+            "reason": reason,
+            "supplier_scores": suppliers_ranked[:5]  # top 5
+        })
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "generated_at": datetime.utcnow(),
+        "suggestions": suggestions
+    }

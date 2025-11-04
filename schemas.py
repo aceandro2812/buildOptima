@@ -164,3 +164,30 @@ class ProjectRead(ProjectBase):
     id: int
     class Config:
         from_attributes = True
+
+
+class SupplierScore(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    lead_time_days: Optional[int]
+    reliability_rating: Optional[float]
+    avg_unit_price: Optional[float]
+    score: float
+
+class ProcurementSuggestionItem(BaseModel):
+    material_id: int
+    material_name: str
+    current_quantity: float
+    days_of_stock: Optional[float]
+    recommended_order_qty: Optional[float]
+    reorder_point: Optional[float]
+    safety_stock: Optional[float]
+    reason: Optional[str]  # short rationale
+    supplier_scores: Optional[List[SupplierScore]] = None
+    ai_explanation: Optional[str] = None
+
+class ProcurementSuggestionResponse(BaseModel):
+    project_id: int
+    project_name: Optional[str]
+    generated_at: datetime
+    suggestions: List[ProcurementSuggestionItem]

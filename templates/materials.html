@@ -5,15 +5,18 @@
 <div class="container mx-auto p-6">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-2xl font-semibold">Materials / Inventory</h1>
-    <div>
+    <div class="flex items-center gap-3">
       <label for="project-filter" class="mr-2">Project:</label>
-      <select id="project-filter" onchange="onProjectChange()" class="p-2 border rounded">
+      <select id="project-filter" class="p-2 border rounded" onchange="onProjectChange()">
         <option value="">All Projects</option>
         {% for p in projects %}
         <option value="{{ p.id }}">{{ p.name }}</option>
         {% endfor %}
       </select>
-      <button onclick="openResourceReportModal()" class="ml-3 px-4 py-2 bg-blue-600 text-white rounded">View Resource Limits Report</button>
+
+      <button id="btn-view-limits" onclick="openResourceReportModal()" class="px-3 py-2 rounded bg-blue-600 text-white">View Resource Limits Report</button>
+
+      <button id="btn-run-proc" onclick="runProcurementAdvisor()" class="px-3 py-2 rounded bg-green-600 text-white">Run Procurement Advisor</button>
     </div>
   </div>
 
@@ -27,7 +30,6 @@
           <th class="px-4 py-2 text-left text-sm font-medium text-gray-700">Unit</th>
           <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">Reorder</th>
           <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">Estimated Value</th>
-          <th class="px-4 py-2 text-right text-sm font-medium text-gray-700">Status</th>
           <th class="px-4 py-2 text-center text-sm font-medium text-gray-700">Actions</th>
         </tr>
       </thead>
@@ -48,12 +50,9 @@
               <span class="text-gray-400">—</span>
             {% endif %}
           </td>
-          <td class="px-4 py-3 text-sm text-right">
-            <!-- Status placeholder; detailed statuses shown in report -->
-            <span class="text-gray-500">Check Report</span>
-          </td>
           <td class="px-4 py-3 text-sm text-center">
-            <a href="/api/materials/{{ m.id }}" class="text-blue-600 hover:underline">Details</a>
+            <a href="/api/materials/{{ m.id }}" class="text-blue-600 hover:underline mr-2">API</a>
+            <a href="/materials/{{ m.id }}" class="text-blue-600 hover:underline">Details</a>
           </td>
         </tr>
         {% endfor %}
@@ -62,7 +61,7 @@
   </div>
 </div>
 
-<!-- Resource Report Modal (simple) -->
+<!-- Resource Report Modal -->
 <div id="resource-report-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-40">
   <div class="bg-white w-11/12 md:w-3/4 lg:w-2/3 rounded shadow-lg p-4 overflow-y-auto max-h-[85vh]">
     <div class="flex justify-between items-center mb-3">
@@ -100,9 +99,23 @@
   </div>
 </div>
 
+<!-- Procurement Advisor Modal -->
+<div id="procurement-modal" class="fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50">
+  <div class="bg-white p-4 w-11/12 md:w-3/4 lg:w-2/3 rounded shadow-lg overflow-y-auto max-h-[85vh]">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="text-lg font-semibold">Procurement Advisor — Recommendations</h3>
+      <button onclick="closeProcModal()" class="px-2 py-1 bg-gray-200 rounded">Close</button>
+    </div>
+
+    <div id="proc-aui-content">
+      <p class="text-sm text-gray-600">Click "Run Procurement Advisor" to generate suggestions for the selected project.</p>
+    </div>
+  </div>
+</div>
+
 <script>
 function onProjectChange(){
-  // optional: filter table client-side if you prefer
+  // For now we don't filter the table client-side; the report/advisor require a project selection.
 }
 
 function openResourceReportModal() {
@@ -155,6 +168,53 @@ async function loadResourceLimits(projectId) {
     tbody.appendChild(tr);
   }
 }
+
+async function runProcurementAdvisor(){
+  const sel = document.getElementById('project-filter');
+  const pid = sel ? sel.value : null;
+  if(!pid){ alert('Select a project first'); return; }
+  document.getElementById('procurement-modal').classList.remove('hidden');
+  document.getElementById('procurement-modal').classList.add('flex');
+  const content = document.getElementById('proc-aui-content');
+  content.innerHTML = '<p class="text-sm text-gray-600">Generating recommendations — please wait...</p>';
+  try {
+    const resp = await fetch(`/api/ai/procurement?project_id=${pid}`);
+    if(!resp.ok){
+      const t = await resp.text();
+      content.innerHTML = `<div class="text-red-600">Error: ${t}</div>`;
+      return;
+    }
+    const data = await resp.json();
+    let html = `<div class="space-y-4">`;
+    if(!data.suggestions || data.suggestions.length === 0){
+      html += `<div class="p-3 text-sm text-gray-600">No suggestions generated.</div>`;
+    } else {
+      for(const s of data.suggestions){
+        let suppliers_html = '';
+        if(s.supplier_scores && s.supplier_scores.length>0){
+          suppliers_html = '<div class="mt-2 text-xs text-gray-600"><strong>Top suppliers:</strong><ul class="list-disc ml-5">';
+          for(const sup of s.supplier_scores){
+            suppliers_html += `<li>${sup.supplier_name} — lead ${sup.lead_time_days ?? 'N/A'}d, reliability ${sup.reliability_rating ?? 'N/A'}, price ${sup.avg_unit_price ?? 'N/A'}, score ${sup.score}</li>`;
+          }
+          suppliers_html += '</ul></div>';
+        }
+        html += `<div class="border rounded p-3">
+          <div class="flex justify-between"><strong>${s.material_name}</strong><span>Current: ${s.current_quantity}</span></div>
+          <div class="text-sm mt-2">Recommendation: <strong>${s.recommended_order_qty ?? '—'}</strong> units</div>
+          <div class="text-xs text-gray-600 mt-1">${s.reason}</div>
+          ${suppliers_html}
+          <div class="mt-3 text-sm"><em>AI explanation:</em><div class="mt-1 text-sm text-gray-800">${s.ai_explanation || ''}</div></div>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+    content.innerHTML = html;
+  } catch (err) {
+    content.innerHTML = '<div class="text-red-600">Error running advisor: ' + err.toString() + '</div>';
+  }
+}
+
+function closeProcModal(){ document.getElementById('procurement-modal').classList.add('hidden'); document.getElementById('procurement-modal').classList.remove('flex'); }
 </script>
 
 {%- endblock -%}
