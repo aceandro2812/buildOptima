@@ -1,0 +1,71 @@
+{%- extends "base.html" -%}
+{%- block title -%}Resource Limits Report - BuildOptima{%- endblock -%}
+
+{%- block content -%}
+<div class="container mx-auto p-6">
+  <h1 class="text-2xl font-semibold mb-4">Resource Limits Report</h1>
+
+  <div class="mb-4">
+    <label for="project-select" class="mr-2">Project:</label>
+    <select id="project-select" onchange="loadReportForSelected()">
+      <option value="">Select project</option>
+      {% for p in projects %}
+      <option value="{{ p.id }}">{{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="mb-6">
+    <div>Summary: Total: <span id="rl-total">0</span> — Exceeded: <span id="rl-exceeded">0</span> — Under: <span id="rl-under">0</span> — No Estimate: <span id="rl-no-est">0</span></div>
+  </div>
+
+  <div class="overflow-x-auto bg-white rounded shadow">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left">Material</th>
+          <th class="px-4 py-2 text-right">Estimated Value</th>
+          <th class="px-4 py-2 text-right">Actual Value</th>
+          <th class="px-4 py-2 text-right">Variance</th>
+          <th class="px-4 py-2 text-right">Variance %</th>
+          <th class="px-4 py-2 text-left">Status</th>
+        </tr>
+      </thead>
+      <tbody id="rl-page-body" class="divide-y divide-gray-100"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadReportForSelected() {
+  const sel = document.getElementById('project-select');
+  const pid = sel.value;
+  if (!pid) return;
+  const resp = await fetch(`/api/reports/resource-limits?project_id=${pid}`);
+  if (!resp.ok) {
+    console.error(await resp.text());
+    alert('Failed to fetch report, check console.');
+    return;
+  }
+  const data = await resp.json();
+  document.getElementById('rl-total').innerText = data.summary.total_items;
+  document.getElementById('rl-exceeded').innerText = data.summary.num_exceeded;
+  document.getElementById('rl-under').innerText = data.summary.num_under;
+  document.getElementById('rl-no-est').innerText = data.summary.num_no_estimate;
+  const tbody = document.getElementById('rl-page-body');
+  tbody.innerHTML = '';
+  for (const item of data.items) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-4 py-2">${item.material_name}</td>
+      <td class="px-4 py-2 text-right">${item.estimated_total_value === null ? '—' : '₹ ' + item.estimated_total_value.toFixed(2)}</td>
+      <td class="px-4 py-2 text-right">₹ ${item.actual_value_used.toFixed(2)}</td>
+      <td class="px-4 py-2 text-right">${item.variance_value === null ? '—' : '₹ ' + item.variance_value.toFixed(2)}</td>
+      <td class="px-4 py-2 text-right">${item.variance_percent === null ? '—' : item.variance_percent.toFixed(2) + '%'}</td>
+      <td class="px-4 py-2">${item.status}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+</script>
+{%- endblock -%}

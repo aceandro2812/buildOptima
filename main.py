@@ -31,7 +31,7 @@ from crud import (
     get_cost_data, create_cost_record,
     get_waste_data, create_waste_record,
     get_alerts, create_alert, resolve_alert,
-    create_project, get_projects, get_project_by_id, update_project, delete_project
+    create_project, get_projects, get_project_by_id, update_project, delete_project,get_resource_limits_report
 )
 
 # --- Import Agent Functions (Original Approach) ---
@@ -402,3 +402,11 @@ async def get_inventory_analysis_report():
     try: report = run_inventory_analysis_agent(); logger.info("Inventory analysis report generated successfully."); return JSONResponse(content={"report": report})
     except Exception as e: logger.exception("Error running inventory analysis agent"); raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate inventory report: {str(e)}")
 
+@app.get("/api/reports/resource-limits", response_class=JSONResponse, tags=["Reports"])
+async def api_get_resource_limits_report(project_id: int, db: Session = Depends(get_db)):
+    try:
+        report = get_resource_limits_report(db, project_id)
+        return JSONResponse(content=report)
+    except Exception as e:
+        logger.exception(f"Error generating resource limits report for project {project_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate resource limits report.")

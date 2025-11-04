@@ -4,7 +4,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime, date
 from typing import Optional, List
 
-# --- Inventory Schemas (Updated) ---
+# schemas.py (Inventory parts)
+
 class InventoryBase(BaseModel):
     material_name: str = Field(..., min_length=1)
     quantity: float = Field(..., ge=0)
@@ -12,6 +13,11 @@ class InventoryBase(BaseModel):
     reorder_point: float = Field(..., ge=0)
     supplier_id: Optional[int] = None
     project_id: int
+
+    # New estimate fields (optional)
+    estimated_quantity: Optional[float] = Field(None, ge=0)
+    estimated_unit_price: Optional[float] = Field(None, ge=0)
+    estimated_total_value: Optional[float] = Field(None, ge=0)
 
 class InventoryCreate(InventoryBase):
     pass
@@ -21,6 +27,13 @@ class InventoryRead(InventoryBase):
     last_updated: Optional[datetime] = None
     supplier_name: Optional[str] = None
     project_name: Optional[str] = None
+
+    # Read-only computed fields (returned in report)
+    actual_consumed_quantity: Optional[float] = None
+    actual_value_used: Optional[float] = None
+    variance_value: Optional[float] = None
+    variance_percent: Optional[float] = None
+    status: Optional[str] = None  # exceeded / under / no_estimate
 
     class Config:
         from_attributes = True

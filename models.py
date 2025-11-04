@@ -29,7 +29,8 @@ class Project(Base):
     waste_records = relationship("Waste", back_populates="project_rel", cascade="all, delete-orphan")
 
 
-# --- Inventory Model (Updated) ---
+# models.py (only the Inventory class shown; replace the Inventory class in file)
+
 class Inventory(Base):
     __tablename__ = "inventory"
 
@@ -38,18 +39,24 @@ class Inventory(Base):
     quantity = Column(Float, nullable=False, default=0.0)
     unit = Column(String, nullable=False)
     reorder_point = Column(Float, nullable=False, default=0.0)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # Add onupdate
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True) # Supplier might be optional?
+    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    supplier_id = Column(Integer, ForeignKey("suppliers.id"), nullable=True)
 
-    # --- Link to Project ---
-    # Assuming inventory is project-specific based on your requirement
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False) # Make non-nullable if inventory MUST belong to a project
+    # Project link (unchanged)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     project = relationship("Project", back_populates="inventory_items")
-    # --- End Project Link ---
 
-    # Relationships
+    # --- New fields for estimates / limit points ---
+    # Estimated planned quantity for the entire project (optional)
+    estimated_quantity = Column(Float, nullable=True, default=None)
+    # Estimated unit price for the material (optional)
+    estimated_unit_price = Column(Float, nullable=True, default=None)
+    # Estimated total value (limit point). If provided, use as authoritative; else compute (estimated_quantity * estimated_unit_price)
+    estimated_total_value = Column(Float, nullable=True, default=None)
+    # --- End new fields ---
+
+    # Relationships (unchanged)
     supplier = relationship("Supplier", back_populates="materials")
-    # If an Inventory item is deleted, delete its related records
     consumption_records = relationship("Consumption", back_populates="material", cascade="all, delete-orphan")
     waste_records = relationship("Waste", back_populates="material", cascade="all, delete-orphan")
     cost_records = relationship("Cost", back_populates="material", cascade="all, delete-orphan")
