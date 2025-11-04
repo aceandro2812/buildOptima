@@ -7,8 +7,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+import asyncio
 from typing import List, Optional
 from datetime import datetime
+from broadcast import broadcast_manager
+from fastapi import WebSocket, WebSocketDisconnect
+
 
 # --- Database, Models, Schemas, CRUD ---
 from database import get_db, engine
@@ -27,7 +31,8 @@ from crud import (
     get_consumption_data, create_consumption_record,
     get_cost_data, create_cost_record,
     get_waste_data, create_waste_record,
-    get_alerts, create_project, get_projects, get_project_by_id, update_project, delete_project, get_resource_limits_report
+    get_alerts, create_project, get_projects, get_project_by_id, update_project, delete_project, get_resource_limits_report,
+    crud_get_total_materials, crud_get_active_alerts_count, crud_get_num_exceeded, crud_get_total_cost, crud_get_top_overruns, crud_get_recent_consumption
 )
 
 # --- Import Agent Functions ---
@@ -50,6 +55,56 @@ templates = Jinja2Templates(directory="templates")
 templates.env.globals['now'] = datetime.utcnow
 
 # === Page Routes ===
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    projects = get_projects(db)
+    return templates.TemplateResponse("dashboard.html", {"request": request, "projects": projects})
+
+@app.websocket("/ws/dashboard")
+async def websocket_dashboard(websocket: WebSocket):
+    """
+    WebSocket for dashboard real-time updates.
+    Clients should connect with: new WebSocket(`ws://<host>/ws/dashboard`)
+    Server will send JSON messages { type: "<event_type>", payload: { ... } }.
+    """
+    await broadcast_manager.connect(websocket)
+    try:
+        # Keep connection alive; client won't send on this socket normally.
+        while True:
+            # receive_text to keep the socket alive and detect client pings
+            try:
+                await websocket.receive_text()
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                # ignore other client-side noises; just continue
+                await asyncio.sleep(0.1)
+    finally:
+        await broadcast_manager.disconnect(websocket)
+
+@app.get("/api/dashboard/snapshot")
+def api_dashboard_snapshot(project_id: int = None, db: Session = Depends(get_db)):
+    """
+    Returns aggregated metrics needed to initialize the dashboard.
+    If project_id is provided, data is scoped to that project.
+    """
+    # use helper functions in crud.py (we'll add these)
+    try:
+        data = {
+            "summary": {
+                "total_materials": crud_get_total_materials(db, project_id),
+                "active_alerts": crud_get_active_alerts_count(db, project_id),
+                "num_exceeded": crud_get_num_exceeded(db, project_id),
+                "total_cost": crud_get_total_cost(db, project_id)
+            },
+            "top_overruns": crud_get_top_overruns(db, project_id, limit=5),
+            "recent_consumption": crud_get_recent_consumption(db, project_id, limit=10),
+            "resource_limits": get_resource_limits_report(db, project_id) if project_id else None
+        }
+        return JSONResponse(content=data)
+    except Exception:
+        logger.exception("Failed to get dashboard snapshot")
+        raise HTTPException(status_code=500, detail="Failed to get dashboard snapshot")
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, db: Session = Depends(get_db)):
     """Serves the home/dashboard page."""

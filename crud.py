@@ -13,6 +13,8 @@ from schemas import (
     InventoryCreate, SupplierCreate, SupplierUpdate,
     ConsumptionCreate, CostCreate, WasteCreate, AlertCreate, ProjectCreate, ProjectUpdate,
 )
+from broadcast import broadcast_manager
+import asyncio
 
 # ---------------------------
 # Project CRUD operations
@@ -168,6 +170,15 @@ def create_inventory(db: Session, item: InventoryCreate) -> Inventory:
         db.commit()
         db.refresh(db_item)
         db.refresh(db_item, attribute_names=['project', 'supplier'])
+        try:
+            notify_payload = {
+                "inventory_id": db_item.id,
+                "material_name": db_item.material_name,
+                "project_id": db_item.project_id
+            }
+            notify_broadcast("inventory_created", notify_payload)
+        except Exception as e:
+            print(f"Failed to notify broadcast for inventory creation: {e}")
         return db_item
     except IntegrityError as e:
         db.rollback()
@@ -200,6 +211,15 @@ def update_inventory_quantity(db: Session, item_id: int, quantity: float) -> Opt
             db.commit()
             db.refresh(db_item)
             db.refresh(db_item, attribute_names=['project', 'supplier'])
+            try:
+                notify_payload = {
+                    "inventory_id": db_item.id,
+                    "quantity": db_item.quantity,
+                    "project_id": db_item.project_id
+                }
+                notify_broadcast("inventory_updated", notify_payload)
+            except Exception as e:
+                print(f"Failed to notify broadcast for inventory update: {e}")
             return db_item
         except Exception as e:
             db.rollback()
@@ -319,6 +339,19 @@ def create_consumption_record(db: Session, consumption: ConsumptionCreate) -> Co
         check_and_create_limit_alert(db, inventory_item)
         db.refresh(db_consumption)
         db.refresh(db_consumption, attribute_names=['material', 'project_rel'])
+        try:
+            # notify frontends that a new consumption record exists
+            notify_payload = {
+                "consumption_id": db_consumption.id,
+                "material_id": db_consumption.material_id,
+                "material_name": db_consumption.material.material_name if db_consumption.material else None,
+                "quantity_used": db_consumption.quantity_used,
+                "date_used": db_consumption.date_used.isoformat(),
+                "project_id": db_consumption.project_id
+            }
+            notify_broadcast("consumption_created", notify_payload)
+        except Exception as e:
+            print(f"Failed to notify broadcast for consumption: {e}")
         return db_consumption
     except Exception as e:
         db.rollback()
@@ -373,6 +406,16 @@ def create_waste_record(db: Session, waste: WasteCreate) -> Waste:
         check_and_create_limit_alert(db, inventory_item)
         db.refresh(db_waste)
         db.refresh(db_waste, attribute_names=['material', 'project_rel'])
+        try:
+            notify_payload = {
+                "waste_id": db_waste.id,
+                "material_id": db_waste.material_id,
+                "quantity_wasted": db_waste.quantity_wasted,
+                "project_id": db_waste.project_id
+            }
+            notify_broadcast("waste_created", notify_payload)
+        except Exception as e:
+            print(f"Failed to notify broadcast for waste: {e}")
         return db_waste
     except Exception as e:
         db.rollback()
@@ -432,6 +475,16 @@ def create_cost_record(db: Session, cost: CostCreate) -> Cost:
         # check limit exceeded for the related inventory item
         db.refresh(inventory_item)
         check_and_create_limit_alert(db, inventory_item)
+        try:
+            notify_payload = {
+                "cost_id": db_cost.id,
+                "material_id": db_cost.material_id,
+                "total_cost": db_cost.total_cost,
+                "project_id": inventory_item.project_id
+            }
+            notify_broadcast("cost_created", notify_payload)
+        except Exception as e:
+            print(f"Failed to notify broadcast for cost: {e}")
         return db_cost
     except IntegrityError as e:
         db.rollback()
@@ -467,6 +520,16 @@ def create_alert(db: Session, alert: AlertCreate) -> Alert:
     try:
         db.commit()
         db.refresh(db_alert)
+        try:
+            notify_payload = {
+                "alert_id": db_alert.id,
+                "material_id": db_alert.material_id,
+                "alert_type": db_alert.alert_type,
+                "message": db_alert.message
+            }
+            notify_broadcast("alert_created", notify_payload)
+        except Exception as e:
+            print(f"Failed to notify broadcast for alert: {e}")
         return db_alert
     except Exception as e:
          db.rollback()
@@ -785,3 +848,99 @@ def get_procurement_suggestions(db: Session, project_id: int, lookback_days: int
         "generated_at": datetime.utcnow(),
         "suggestions": suggestions
     }
+
+# --- Dashboard aggregator helpers (used by snapshot endpoint) ---
+def crud_get_total_materials(db: Session, project_id: Optional[int] = None) -> int:
+    q = db.query(func.count(Inventory.id))
+    if project_id:
+        q = q.filter(Inventory.project_id == project_id)
+    return int(q.scalar() or 0)
+
+def crud_get_active_alerts_count(db: Session, project_id: Optional[int] = None) -> int:
+    q = db.query(func.count(Alert.id)).filter(Alert.is_active)
+    if project_id:
+        # alerts link to material -> inventory has project_id
+        q = q.join(Inventory, Alert.material_id == Inventory.id).filter(Inventory.project_id == project_id)
+    return int(q.scalar() or 0)
+
+def crud_get_num_exceeded(db: Session, project_id: Optional[int] = None) -> int:
+    # count of inventory items where actual > estimate
+    items = get_inventory(db, project_id=project_id)
+    cnt = 0
+    for it in items:
+        est = compute_estimated_total_value(it)
+        if est is None:
+            continue
+        actual = compute_actual_value_used(db, it)
+        if actual > est:
+            cnt += 1
+    return cnt
+
+def crud_get_total_cost(db: Session, project_id: Optional[int] = None) -> float:
+    q = db.query(func.coalesce(func.sum(Cost.total_cost), 0.0)).join(Inventory, Cost.material_id == Inventory.id)
+    if project_id:
+        q = q.filter(Inventory.project_id == project_id)
+    val = q.scalar() or 0.0
+    return float(val)
+
+
+def crud_get_recent_consumption(db: Session, project_id: Optional[int] = None, limit: int = 10):
+    q = db.query(Consumption).options(joinedload(Consumption.material)).order_by(Consumption.date_used.desc())
+    if project_id:
+        q = q.filter(Consumption.project_id == project_id)
+    rows = q.limit(limit).all()
+    # serialize minimal fields
+    return [{
+        "id": r.id,
+        "material_id": r.material_id,
+        "material_name": r.material.material_name if r.material else None,
+        "quantity_used": r.quantity_used,
+        "date_used": r.date_used.isoformat(),
+        "project_id": r.project_id
+    } for r in rows]
+
+
+def crud_get_top_overruns(db: Session, project_id: Optional[int] = None, limit: int = 5):
+    report = get_resource_limits_report(db, project_id) if project_id is not None else None
+    if report and "items" in report:
+        # filter only exceeded
+        exceeded = [i for i in report["items"] if i["status"] == "exceeded"]
+        return exceeded[:limit]
+    # fallback: compute across all inventory if no project passed
+    items = get_inventory(db, project_id=project_id)
+    overruns = []
+    for it in items:
+        est = compute_estimated_total_value(it)
+        if est is None:
+            continue
+        actual = compute_actual_value_used(db, it)
+        if actual > est:
+            overruns.append({
+                "material_id": it.id,
+                "material_name": it.material_name,
+                "estimated_total_value": round(est,2),
+                "actual_value_used": round(actual,2),
+                "variance": round(actual - est,2)
+            })
+    overruns_sorted = sorted(overruns, key=lambda x: x["variance"], reverse=True)
+    return overruns_sorted[:limit]
+
+# --- Broadcast notifier used by CRUD functions after DB commit ---
+def notify_broadcast(event_type: str, payload: dict):
+    """
+    Fire-and-forget broadcast via global broadcast_manager.
+    event_type: strings like "consumption_created", "cost_created", "inventory_updated", "alert_created"
+    payload: small JSON serializable dict
+    """
+    # schedule background broadcast on event loop
+    try:
+        coro = broadcast_manager.broadcast_json({"type": event_type, "payload": payload})
+        # use asyncio.create_task if within async context; otherwise run in new loop
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(coro)
+        else:
+            # for synchronous contexts (rare), run until complete
+            loop.run_until_complete(coro)
+    except Exception as e:
+        print("notify_broadcast failed:", e)
