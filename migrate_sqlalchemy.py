@@ -1,7 +1,8 @@
 from sqlalchemy import create_engine, text
 from shutil import copy2
 from datetime import datetime
-import os, sys
+import os
+import sys
 
 DB_URL = "sqlite:///./construction_materials.db"
 BACKUP = f"construction_materials.db.bak.{datetime.utcnow().strftime('%Y%m%dT%H%M%S')}"

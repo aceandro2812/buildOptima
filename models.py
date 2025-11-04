@@ -4,8 +4,8 @@
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, ForeignKey, Date, Text, Boolean
 )
-from sqlalchemy.orm import relationship, joinedload # Import relationship and joinedload
-from datetime import datetime, date
+from sqlalchemy.orm import relationship # Import relationship
+from datetime import datetime
 from database import Base # Import Base from your database setup
 
 # --- Project Model ---

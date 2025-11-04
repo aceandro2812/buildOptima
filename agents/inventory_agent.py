@@ -6,10 +6,10 @@ import logging
 import sys
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from typing import List, TypedDict, Sequence, Optional, Dict, Any
+from typing import List, TypedDict, Sequence, Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
 from langchain_community.tools import DuckDuckGoSearchRun # Import DuckDuckGo tool
@@ -29,7 +29,6 @@ from crud import (
     get_suppliers as crud_get_suppliers,
     get_cost_data as crud_get_cost_data # Optional cost data
 )
-from models import Inventory, Consumption, Supplier, Cost, Project # Import Project model
 # For type hints if needed - Although crud functions return ORM objects
 
 # --- Logging Setup ---
@@ -39,7 +38,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_MODEL_NAME = os.getenv("OPENROUTER_MODEL_NAME", "mistralai/mistral-7b-instruct")
-if not OPENROUTER_API_KEY: raise ValueError("OPENROUTER_API_KEY not found")
+if not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY not found")
 
 # --- LLM Configuration ---
 try:
@@ -187,18 +187,24 @@ def get_consumption_history(days_limit: int = 90) -> List[ConsumptionRecord]:
 @tool
 def get_supplier_details() -> List[SupplierRecord]:
     """ Fetches relevant details (ID, name, lead time, reliability) for all suppliers. """
-    db = SessionLocal(); result = []
+    db = SessionLocal()
+    result = []
     try:
         suppliers_orm = crud_get_suppliers(db)
         result = [ SupplierRecord( id=item.id, name=item.name, lead_time_days=item.lead_time_days, reliability_rating=item.reliability_rating ) for item in suppliers_orm ]
         logging.info(f"Fetched {len(result)} supplier records.")
-    except Exception as e: logging.error(f"Error fetching supplier data: {e}", exc_info=True)
-    finally: db.close(); return result
+    except Exception as e:
+        logging.error(f"Error fetching supplier data: {e}", exc_info=True)
+    finally:
+        db.close()
+        return result
 
 @tool
 def get_cost_history(days_limit: int = 180) -> List[CostRecord]:
     """ Fetches material cost records from the past specified number of days. """
-    db = SessionLocal(); result = []; skipped_count = 0
+    db = SessionLocal()
+    result = []
+    skipped_count = 0
     try:
         # Use crud function which eager loads relationships
         cost_orm = crud_get_cost_data(db)
@@ -206,7 +212,8 @@ def get_cost_history(days_limit: int = 180) -> List[CostRecord]:
         for item in cost_orm:
             # Basic checks
             if item.material_id is None: # supplier_id can be None in Cost model
-                skipped_count += 1; continue
+                skipped_count += 1
+                continue
             if not (item.date_recorded and item.date_recorded >= cutoff_date.replace(tzinfo=item.date_recorded.tzinfo)): # Make tz aware if needed
                  continue
 
@@ -227,12 +234,17 @@ def get_cost_history(days_limit: int = 180) -> List[CostRecord]:
                 )
                 result.append(record)
             except Exception as pydantic_error:
-                 logging.warning(f"Skipping cost record ID {item.id} due to Pydantic validation error: {pydantic_error}"); skipped_count += 1
+                 logging.warning(f"Skipping cost record ID {item.id} due to Pydantic validation error: {pydantic_error}")
+                 skipped_count += 1
 
-        if skipped_count > 0: logging.warning(f"Skipped {skipped_count} cost records due to missing IDs, validation errors, or date range.")
+        if skipped_count > 0:
+            logging.warning(f"Skipped {skipped_count} cost records due to missing IDs, validation errors, or date range.")
         logging.info(f"Fetched {len(result)} valid cost records from last {days_limit} days.")
-    except Exception as e: logging.error(f"Error fetching cost data: {e}", exc_info=True)
-    finally: db.close(); return result
+    except Exception as e:
+        logging.error(f"Error fetching cost data: {e}", exc_info=True)
+    finally:
+        db.close()
+        return result
 
 # Initialize the DuckDuckGo Search tool instance
 search_tool = DuckDuckGoSearchRun()
@@ -283,15 +295,20 @@ def fetch_inventory_data_node(state: InventoryAnalysisState) -> InventoryAnalysi
 
 def analyze_consumption_demand_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
     logging.info("--- Node: Analyzing Consumption & Demand ---")
-    if state.get('error_message'): return state
+    if state.get('error_message'):
+        return state
     inventory = state.get('inventory_data', [])
     consumption = state.get('consumption_data', [])
     if not consumption:
         analysis = "Insufficient data for consumption analysis (No valid consumption records found in the specified period)."
-        logging.warning(analysis); state['consumption_analysis'] = analysis
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
-        state['messages'] = state['messages'] + [SystemMessage(content=analysis)]; return state
-    if not inventory: logging.warning("Inventory data is missing, consumption analysis might be less useful.")
+        logging.warning(analysis)
+        state['consumption_analysis'] = analysis
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=analysis)]
+        return state
+    if not inventory:
+        logging.warning("Inventory data is missing, consumption analysis might be less useful.")
 
     # Use the agent's internal ConsumptionRecord for summaries
     consumption_summary_for_llm = [ f"Material ID {c.material_id} ({c.material_name}): Used {c.quantity_used} for Project '{c.project}' on {c.date_used[:10] if c.date_used else 'N/A'}" for c in consumption[:50] ]
@@ -299,32 +316,35 @@ def analyze_consumption_demand_node(state: InventoryAnalysisState) -> InventoryA
     inventory_summary_for_llm = [ f"Material ID {i.id} ({i.material_name}) in Project '{i.project_name}': Current Qty {i.quantity} {i.unit}" for i in inventory[:20] ]
 
     prompt = f"""
-You are an inventory analyst for a construction site in Thane, India.
-Analyze the provided recent consumption history (last 90 days) and current inventory levels.
-Identify materials with high consumption rates across different projects.
-Estimate the average monthly consumption for the top 3-5 most consumed materials based on the 90-day data.
-Highlight any materials showing significant recent spikes or drops in usage.
+    You are an inventory analyst for a construction site in Thane, India.
+    Analyze the provided recent consumption history (last 90 days) and current inventory levels.
+    Identify materials with high consumption rates across different projects.
+    Estimate the average monthly consumption for the top 3-5 most consumed materials based on the 90-day data.
+    Highlight any materials showing significant recent spikes or drops in usage.
 
-Consumption Data Preview (up to 50 records):
-{json.dumps(consumption_summary_for_llm, indent=2)}
-Total Valid Consumption Records Analyzed (last 90d): {len(consumption)}
+    Consumption Data Preview (up to 50 records):
+    {json.dumps(consumption_summary_for_llm, indent=2)}
+    Total Valid Consumption Records Analyzed (last 90d): {len(consumption)}
 
-Current Inventory Preview (up to 20 items):
-{json.dumps(inventory_summary_for_llm, indent=2)}
-Total Inventory Items: {len(inventory)}
+    Current Inventory Preview (up to 20 items):
+    {json.dumps(inventory_summary_for_llm, indent=2)}
+    Total Inventory Items: {len(inventory)}
 
-Provide a concise analysis focusing on consumption trends and estimated monthly demand for key items. Mention projects if consumption is project-specific.
-"""
+    Provide a concise analysis focusing on consumption trends and estimated monthly demand for key items. Mention projects if consumption is project-specific.
+    """
     messages = [SystemMessage(content=prompt)]
     try:
-        response = llm.invoke(messages); analysis = response.content
+        response = llm.invoke(messages)
+        analysis = response.content
         state['consumption_analysis'] = analysis
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
         state['messages'] = state['messages'] + [response]
         logging.info("Consumption analysis generated.")
     except Exception as e:
         logging.error(f"LLM invocation failed during consumption analysis: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during consumption analysis: {e}"; state['consumption_analysis'] = "Error during consumption analysis."
+        state['error_message'] = f"LLM error during consumption analysis: {e}"
+        state['consumption_analysis'] = "Error during consumption analysis."
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during consumption analysis: {e}")]
     return state
 
@@ -333,18 +353,27 @@ Provide a concise analysis focusing on consumption trends and estimated monthly 
 def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
     """Suggests optimized reorder points or order quantities, incorporating real web search for price context."""
     logging.info("--- Node: Optimizing Inventory Levels ---")
-    if state.get('error_message'): return state
+    if state.get('error_message'):
+        return state
     if not state.get('consumption_analysis') or "Insufficient data" in state.get('consumption_analysis', "") or "No valid consumption records" in state.get('consumption_analysis', "") :
         suggestions = "Skipping optimization due to lack of consumption analysis."
-        logging.warning(suggestions); state['optimization_suggestions'] = suggestions
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
-        state['messages'] = state['messages'] + [SystemMessage(content=suggestions)]; return state
-    inventory = state.get('inventory_data', []); suppliers = state.get('supplier_data', []); consumption_analysis = state.get('consumption_analysis', "No analysis available.")
+        logging.warning(suggestions)
+        state['optimization_suggestions'] = suggestions
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=suggestions)]
+        return state
+    inventory = state.get('inventory_data', [])
+    suppliers = state.get('supplier_data', [])
+    consumption_analysis = state.get('consumption_analysis', "No analysis available.")
     if not inventory or not suppliers:
          suggestions = "Skipping optimization due to missing inventory or supplier data."
-         logging.warning(suggestions); state['optimization_suggestions'] = suggestions
-         if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
-         state['messages'] = state['messages'] + [SystemMessage(content=suggestions)]; return state
+         logging.warning(suggestions)
+         state['optimization_suggestions'] = suggestions
+         if 'messages' not in state or not isinstance(state['messages'], list):
+             state['messages'] = []
+         state['messages'] = state['messages'] + [SystemMessage(content=suggestions)]
+         return state
 
     # Use the agent's internal InventoryRecord for details
     inventory_details = [ f"ID {i.id} ({i.material_name}) in Project '{i.project_name}': Qty={i.quantity}, Unit={i.unit}, ReorderPt={i.reorder_point}, SupplierID={i.supplier_id or 'N/A'}" for i in inventory ]
@@ -397,39 +426,42 @@ def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisS
 
     # Prepare prompt for LLM, including the actual price context
     prompt = f"""
-You are an inventory optimization specialist for a construction site in Thane.
-Based on the consumption analysis, current inventory (potentially across multiple projects), supplier lead times, and recent price context (if available), suggest inventory adjustments.
+    You are an inventory optimization specialist for a construction site in Thane.
+    Based on the consumption analysis, current inventory (potentially across multiple projects), supplier lead times, and recent price context (if available), suggest inventory adjustments.
 
-Consumption Analysis Highlights:
-{consumption_analysis}
+    Consumption Analysis Highlights:
+    {consumption_analysis}
 
-Current Inventory (Note: Items are project-specific):
-{json.dumps(inventory_details, indent=2)}
+    Current Inventory (Note: Items are project-specific):
+    {json.dumps(inventory_details, indent=2)}
 
-Supplier Lead Times & Reliability:
-{json.dumps(supplier_details, indent=2)}
+    Supplier Lead Times & Reliability:
+    {json.dumps(supplier_details, indent=2)}
 
-{price_context}
+    {price_context}
 
-For materials identified as high-consumption or nearing reorder points:
-1.  Identify the specific inventory item (Material Name + Project Name) that needs attention.
-2.  Calculate the 'safety stock' needed for THAT SPECIFIC ITEM. Use average daily consumption (estimated from monthly consumption / 30) * lead time (from supplier details, use average if multiple suppliers for same material type exist, or state assumption) * reliability factor (e.g., 1.0 for 5/5, 1.2 for 4/5, 1.5 for <4/5 or N/A). If lead time or reliability is missing ('N/A'), state that calculation is approximate.
-3.  Recommend adjustments to the 'reorder_point' for THAT SPECIFIC ITEM if the current one seems too low based on safety stock + lead time demand (demand during lead time = avg daily consumption * lead time).
-4.  Suggest optimal 'order quantity' for THAT SPECIFIC ITEM, considering estimated monthly demand, current stock, and maybe recent price trends (mention if prices seem high/low based on search). Aim for roughly 1-1.5 months of stock after ordering for that item.
-5.  Flag items significantly below their *calculated* reorder point (current qty < calculated reorder point), clearly stating the material name and project.
+    For materials identified as high-consumption or nearing reorder points:
+    1.  Identify the specific inventory item (Material Name + Project Name) that needs attention.
+    2.  Calculate the 'safety stock' needed for THAT SPECIFIC ITEM. Use average daily consumption (estimated from monthly consumption / 30) * lead time (from supplier details, use average if multiple suppliers for same material type exist, or state assumption) * reliability factor (e.g., 1.0 for 5/5, 1.2 for 4/5, 1.5 for <4/5 or N/A). If lead time or reliability is missing ('N/A'), state that calculation is approximate.
+    3.  Recommend adjustments to the 'reorder_point' for THAT SPECIFIC ITEM if the current one seems too low based on safety stock + lead time demand (demand during lead time = avg daily consumption * lead time).
+    4.  Suggest optimal 'order quantity' for THAT SPECIFIC ITEM, considering estimated monthly demand, current stock, and maybe recent price trends (mention if prices seem high/low based on search). Aim for roughly 1-1.5 months of stock after ordering for that item.
+    5.  Flag items significantly below their *calculated* reorder point (current qty < calculated reorder point), clearly stating the material name and project.
 
-Provide concise, actionable suggestions for 3-5 key inventory items (Material + Project). Ensure calculations are shown or explained. Write in natural, professional language.
-"""
+    Provide concise, actionable suggestions for 3-5 key inventory items (Material + Project). Ensure calculations are shown or explained. Write in natural, professional language.
+    """
     messages = [SystemMessage(content=prompt)]
     try:
-        response = llm.invoke(messages); suggestions = response.content
+        response = llm.invoke(messages)
+        suggestions = response.content
         state['optimization_suggestions'] = suggestions
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
         state['messages'] = state['messages'] + [response]
         logging.info("Inventory optimization suggestions generated.")
     except Exception as e:
         logging.error(f"LLM invocation failed during optimization: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during optimization: {e}"; state['optimization_suggestions'] = "Error during optimization."
+        state['error_message'] = f"LLM error during optimization: {e}"
+        state['optimization_suggestions'] = "Error during optimization."
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during optimization: {e}")]
     return state
 # --- End Updated optimize_inventory_node ---
@@ -437,12 +469,16 @@ Provide concise, actionable suggestions for 3-5 key inventory items (Material + 
 
 def assess_risks_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
     logging.info("--- Node: Assessing Inventory Risks ---")
-    if state.get('error_message'): return state
-    if not state.get('optimization_suggestions') or "Skipping optimization" in state.get('optimization_suggestions',''):
+    if state.get('error_message'):
+        return state
+    if not state.get('optimization_suggestions') or "Skipping optimization" in state.get('optimization_suggestions','') :
         assessment = "Skipping risk assessment as optimization suggestions are unavailable."
-        logging.warning(assessment); state['risk_assessment'] = assessment
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
-        state['messages'] = state['messages'] + [SystemMessage(content=assessment)]; return state
+        logging.warning(assessment)
+        state['risk_assessment'] = assessment
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=assessment)]
+        return state
 
     optimization_suggestions = state['optimization_suggestions']
     inventory = state.get('inventory_data', []) # Get inventory data for context
@@ -450,35 +486,39 @@ def assess_risks_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
     inventory_context = "\n".join([f"- {i.material_name} (Project: {i.project_name}): Current Qty={i.quantity}, Reorder Pt={i.reorder_point}" for i in inventory])
 
     prompt = f"""
-Based on the inventory optimization suggestions provided below, and the current inventory context, explicitly list any materials flagged as being:
-1.  At immediate risk of stockout (significantly below *calculated* reorder point as mentioned in suggestions). Clearly state Material Name and Project Name.
-2.  Potentially overstocked (e.g., having much more than 2-3 months of estimated demand on hand, based on suggestions or inventory levels compared to consumption trends). Clearly state Material Name and Project Name.
+    Based on the inventory optimization suggestions provided below, and the current inventory context, explicitly list any materials flagged as being:
+    1.  At immediate risk of stockout (significantly below *calculated* reorder point as mentioned in suggestions). Clearly state Material Name and Project Name.
+    2.  Potentially overstocked (e.g., having much more than 2-3 months of estimated demand on hand, based on suggestions or inventory levels compared to consumption trends). Clearly state Material Name and Project Name.
 
-Optimization Suggestions:
-{optimization_suggestions}
+    Optimization Suggestions:
+    {optimization_suggestions}
 
-Current Inventory Context:
-{inventory_context}
+    Current Inventory Context:
+    {inventory_context}
 
-List the risks clearly using natural, professional language and bullet points. If no specific risks were flagged in the suggestions or evident from context, state "No immediate risks identified based on the analysis."
-"""
+    List the risks clearly using natural, professional language and bullet points. If no specific risks were flagged in the suggestions or evident from context, state "No immediate risks identified based on the analysis."
+    """
     messages = [SystemMessage(content=prompt)]
     try:
-        response = llm.invoke(messages); assessment = response.content
+        response = llm.invoke(messages)
+        assessment = response.content
         state['risk_assessment'] = assessment
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
         state['messages'] = state['messages'] + [response]
         logging.info("Inventory risk assessment generated.")
     except Exception as e:
         logging.error(f"LLM invocation failed during risk assessment: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during risk assessment: {e}"; state['risk_assessment'] = "Error during risk assessment."
+        state['error_message'] = f"LLM error during risk assessment: {e}"
+        state['risk_assessment'] = "Error during risk assessment."
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during risk assessment: {e}")]
     return state
 
 
 def compile_inventory_report_node(state: InventoryAnalysisState) -> InventoryAnalysisState:
     logging.info("--- Node: Compiling Inventory Report ---")
-    if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
+    if 'messages' not in state or not isinstance(state['messages'], list):
+        state['messages'] = []
     if state.get('error_message') and not state.get('final_report'):
        state['final_report'] = f"## Report Error\n\nInventory report generation incomplete due to an error:\n\n* **Error:** {state['error_message']}"
        logging.warning("Compiling inventory report based on error state.")
@@ -491,50 +531,55 @@ def compile_inventory_report_node(state: InventoryAnalysisState) -> InventoryAna
     cost_data_summary = json.dumps([c.model_dump(exclude={'messages'}) for c in state.get('cost_data', [])[:5]], indent=2)
 
     summary_prompt = f"""
-Compile a professional inventory analysis report for a construction site manager in Thane, India.
+    Compile a professional inventory analysis report for a construction site manager in Thane, India.
 
-**Instructions:**
-1.  **Structure:** Use the following Markdown H2 headings ONLY: `## Executive Summary`, `## Consumption & Demand Analysis`, `## Optimization Suggestions`, `## Risk Assessment`, `## Price Context`.
-2.  **Tone:** Write in clear, concise, and professional natural language. Avoid jargon where possible.
-3.  **Formatting:**
-    * Use standard paragraphs for explanations.
-    * Use bullet points (`*` or `-`) for lists (like summary points, suggestions, or risks).
-    * **IMPORTANT:** Do NOT use markdown bolding (`**text**`) simply to create labels within sentences (e.g., avoid "**Material:** Steel"). Instead, write naturally (e.g., "Analysis indicates steel consumption is high..."). Use bolding only for emphasis where appropriate in standard writing.
-4.  **Content:** Synthesize the provided analysis information under the correct headings. Start with a brief Executive Summary (2-4 key takeaways covering main findings like high consumption items, risks, or key optimization suggestions). If analysis steps were skipped due to lack of data, mention this appropriately in the relevant sections. Incorporate project details where relevant (e.g., when mentioning specific inventory items or consumption).
+    **Instructions:**
+    1.  **Structure:** Use the following Markdown H2 headings ONLY: `## Executive Summary`, `## Consumption & Demand Analysis`, `## Optimization Suggestions`, `## Risk Assessment`, `## Price Context`.
+    2.  **Tone:** Write in clear, concise, and professional natural language. Avoid jargon where possible.
+    3.  **Formatting:**
+        * Use standard paragraphs for explanations.
+        * Use bullet points (`*` or `-`) for lists (like summary points, suggestions, or risks).
+        * **IMPORTANT:** Do NOT use markdown bolding (`**text**`) simply to create labels within sentences (e.g., avoid "**Material:** Steel"). Instead, write naturally (e.g., "Analysis indicates steel consumption is high..."). Use bolding only for emphasis where appropriate in standard writing.
+    4.  **Content:** Synthesize the provided analysis information under the correct headings. Start with a brief Executive Summary (2-4 key takeaways covering main findings like high consumption items, risks, or key optimization suggestions). If analysis steps were skipped due to lack of data, mention this appropriately in the relevant sections. Incorporate project details where relevant (e.g., when mentioning specific inventory items or consumption).
 
-**Available Analysis Information:**
-Consumption Analysis Info:
-{state.get('consumption_analysis', 'Analysis could not be performed due to missing data.')}
+    **Available Analysis Information:**
+    Consumption Analysis Info:
+    {state.get('consumption_analysis', 'Analysis could not be performed due to missing data.')}
 
-Optimization Suggestions Info:
-{state.get('optimization_suggestions', 'Optimization could not be performed.')}
+    Optimization Suggestions Info:
+    {state.get('optimization_suggestions', 'Optimization could not be performed.')}
 
-Risk Assessment Info:
-{state.get('risk_assessment', 'Risk assessment could not be performed.')}
+    Risk Assessment Info:
+    {state.get('risk_assessment', 'Risk assessment could not be performed.')}
 
-Price Trend Context Info:
-{state.get('price_trends', 'No price search performed or search failed.')}
+    Price Trend Context Info:
+    {state.get('price_trends', 'No price search performed or search failed.')}
 
-**Raw Data Snippets (for context, do not reproduce directly in report):**
-Inventory Preview: {inv_data_summary} ...
-Consumption Preview: {cons_data_summary} ...
-Cost Preview: {cost_data_summary} ...
+    **Raw Data Snippets (for context, do not reproduce directly in report):**
+    Inventory Preview: {inv_data_summary} ...
+    Consumption Preview: {cons_data_summary} ...
+    Cost Preview: {cost_data_summary} ...
 
-Generate the final report following these instructions precisely. Add a timestamp and location context at the beginning, and a concluding note about data limitations/estimates at the end.
-"""
+    Generate the final report following these instructions precisely. Add a timestamp and location context at the beginning, and a concluding note about data limitations/estimates at the end.
+    """
     messages = [SystemMessage(content=summary_prompt)]
     try:
-        response = llm.invoke(messages); report_content = response.content
+        response = llm.invoke(messages)
+        report_content = response.content
         timestamp = f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation Context: Thane, Maharashtra, India\n\n"
-        if not report_content.strip().startswith("Report Generated:"): report_content = timestamp + report_content
-        if "Note:" not in report_content[-200:]: report_content += "\n\n---\n*Note: This report uses AI analysis based on available data. Calculations are estimates. Verify suggestions before placing orders.*"
+        if not report_content.strip().startswith("Report Generated:"):
+            report_content = timestamp + report_content
+        if "Note:" not in report_content[-200:]:
+            report_content += "\n\n---\n*Note: This report uses AI analysis based on available data. Calculations are estimates. Verify suggestions before placing orders.*"
         state['final_report'] = report_content.strip()
-        if 'messages' not in state or not isinstance(state['messages'], list): state['messages'] = []
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
         state['messages'] = state['messages'] + [response, SystemMessage(content="Inventory report compiled successfully.")]
         logging.info("Inventory report compiled successfully using LLM with natural language instructions.")
     except Exception as e:
         logging.error(f"LLM invocation failed during inventory report compilation: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during inventory report compilation: {e}"; state['final_report'] = f"## Report Error\n\nFailed to compile inventory report using LLM due to an error:\n\n* **Error:** {e}"
+        state['error_message'] = f"LLM error during inventory report compilation: {e}"
+        state['final_report'] = f"## Report Error\n\nFailed to compile inventory report using LLM due to an error:\n\n* **Error:** {e}"
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during inventory report compilation: {e}")]
     return state
 
