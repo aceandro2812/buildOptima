@@ -52,6 +52,70 @@
       </div>
     </div>
 
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Waste Trends Chart -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Waste Generation Trends</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="wasteTrendsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Waste Type Distribution -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Waste by Type</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="wasteTypeChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Waste Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-green-100 rounded-lg">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Total Waste</p>
+            <p id="total-waste" class="text-2xl font-bold text-green-600">0 units</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-emerald-100 rounded-lg">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Most Wasted</p>
+            <p id="top-waste-material" class="text-2xl font-bold text-emerald-600">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-yellow-100 rounded-lg">
+            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">This Month</p>
+            <p id="month-waste" class="text-2xl font-bold text-yellow-600">0 units</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Waste Records Table -->
     <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mb-8">
       <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
@@ -87,7 +151,7 @@
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
-                <div class="text-sm text-gray-900">{{ waste.date_wasted.strftime('%Y-%m-%d') if waste.date_wasted else 'Unknown' }}</div>
+                <div class="text-sm text-gray-900">{{ waste.date_wasted[:10] if waste.date_wasted else 'Unknown' }}</div>
               </td>
             </tr>
             {% endfor %}
@@ -181,35 +245,60 @@
         margin-bottom: 0.25rem;
     }
 
+    /* Ensure modal styles are properly applied */
+    .modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        z-index: 1000 !important;
+    }
+
+    .modal.hidden {
+        display: none !important;
+    }
+
+    .modal .modal-content {
+        background: white !important;
+        border-radius: 0.75rem !important;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+        max-width: 90vw !important;
+        max-height: 90vh !important;
+        overflow-y: auto !important;
+        margin: 1rem !important;
+    }
+
+    .modal-header {
+        padding: 1.5rem 1.5rem 0 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .modal-body {
+        padding: 0 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem 1.5rem 1.5rem;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
 </style>
 
-<!-- Main content structure for waste page -->
-<div class="space-y-6">
-    <!-- Page Header & Action Buttons -->
-    <div class="flex flex-wrap justify-between items-center gap-4">
-        <h1 class="text-2xl font-bold text-gray-800">Waste Management</h1>
-        <div class="flex flex-wrap gap-3">
-            <button
-                type="button"
-                id="analyzeWasteBtn"
-                class="btn-primary btn-green flex items-center gap-2 px-4 py-2 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
-                </svg>
-                Analyze Waste
-            </button>
-            <button 
-                type="button" 
-                class="btn-primary flex items-center gap-2 px-4 py-2 text-sm" 
-                onclick="openModal('addWasteModal')">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                Add Waste Record
-            </button>
-        </div>
-    </div>
 
-    <!-- Section to Display Waste Analysis Report -->
+
     <!-- AI Analysis Results Section -->
     <div id="wasteReportSection" class="hidden">
       <div class="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
@@ -269,54 +358,11 @@
         </div>
       </div>
     </div>
-
-    <!-- Waste Records Table -->
-    <h2 class="text-xl font-semibold text-gray-700 mb-3 mt-6">Waste Records Log</h2>
-    <div class="overflow-x-auto">
-        <table class="styled-table">
-            <thead>
-                <tr>
-                    <th>Material</th>
-                    <th>Project</th>
-                    <th>Quantity Wasted</th>
-                    <th>Unit</th>
-                    <th>Reason</th>
-                    <th>Preventive Measures</th>
-                    <th>Date Recorded</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for record in waste_records %}
-                <tr>
-                    <td class="font-medium">{{ record.material.material_name if record.material else 'N/A' }}</td>
-                    <td>
-                        {% if record.project_rel %}
-                            {{ record.project_rel.name }}
-                        {% elif record.project_name %} 
-                            {{ record.project_name }} (Legacy)
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </td>
-                    <td>{{ record.quantity_wasted }}</td>
-                    <td>{{ record.material.unit if record.material else 'N/A' }}</td>
-                    <td class="max-w-xs truncate" title="{{record.reason}}">{{ record.reason }}</td>
-                    <td class="max-w-xs truncate" title="{{record.preventive_measures or 'N/A'}}">{{ record.preventive_measures or 'N/A' }}</td>
-                    <td>{{ record.date_recorded.strftime('%Y-%m-%d %H:%M') if record.date_recorded else 'N/A' }}</td>
-                </tr>
-                {% endfor %}
-                {% if not waste_records %}
-                <tr>
-                    <td colspan="7" class="text-center text-gray-500 py-4">No waste records found.</td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
+  </div>
 </div>
 
 <!-- Add Waste Modal -->
-<div id="addWasteModal" class="modal-backdrop hidden">
+<div id="addWasteModal" class="modal hidden">
     <div class="modal-content">
         <div class="modal-header">
             <h3 class="modal-title">Add New Waste Record</h3>
@@ -369,6 +415,180 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- Chart.js CDN - UMD version to avoid module import errors -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let wasteTrendsChart = null;
+let wasteTypeChart = null;
+
+function initializeCharts() {
+    // Process waste data for charts
+    const wasteData = {{ waste_records | tojson }};
+    
+    // Calculate summary statistics
+    let totalWaste = 0;
+    let monthWaste = 0;
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const materialWaste = {};
+    const wasteTypes = {};
+    const dailyWaste = {};
+    
+    wasteData.forEach(record => {
+        const quantity = parseFloat(record.quantity_wasted || 0);
+        totalWaste += quantity;
+        
+        // Check if this month
+        const recordDate = new Date(record.date_wasted);
+        if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+            monthWaste += quantity;
+        }
+        
+        // Group by material
+        const materialName = record.material_name || (record.material?.material_name) || 'Unknown';
+        materialWaste[materialName] = (materialWaste[materialName] || 0) + quantity;
+        
+        // Group by waste type (reason)
+        const wasteType = record.reason || 'Unknown';
+        wasteTypes[wasteType] = (wasteTypes[wasteType] || 0) + quantity;
+        
+        // Group by date for trends
+        const dateKey = recordDate.toISOString().split('T')[0];
+        dailyWaste[dateKey] = (dailyWaste[dateKey] || 0) + quantity;
+    });
+    
+    // Find most wasted material
+    let topWasteMaterial = '-';
+    let maxWaste = 0;
+    Object.entries(materialWaste).forEach(([material, waste]) => {
+        if (waste > maxWaste) {
+            maxWaste = waste;
+            topWasteMaterial = material;
+        }
+    });
+    
+    // Update summary cards
+    document.getElementById('total-waste').textContent = `${Math.round(totalWaste)} units`;
+    document.getElementById('top-waste-material').textContent = topWasteMaterial;
+    document.getElementById('month-waste').textContent = `${Math.round(monthWaste)} units`;
+    
+    // Create waste trends chart
+    createWasteTrendsChart(dailyWaste);
+    
+    // Create waste type distribution chart
+    createWasteTypeChart(wasteTypes);
+}
+
+function createWasteTrendsChart(dailyWaste) {
+    const ctx = document.getElementById('wasteTrendsChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (wasteTrendsChart) {
+        wasteTrendsChart.destroy();
+    }
+    
+    const sortedDates = Object.keys(dailyWaste).sort();
+    const labels = sortedDates.map(date => new Date(date).toLocaleDateString());
+    const data = sortedDates.map(date => dailyWaste[date]);
+    
+    wasteTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Daily Waste',
+                data: data,
+                borderColor: 'rgb(34, 197, 94)',
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(0) + ' units';
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 7
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createWasteTypeChart(wasteTypes) {
+    const ctx = document.getElementById('wasteTypeChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (wasteTypeChart) {
+        wasteTypeChart.destroy();
+    }
+    
+    const types = Object.keys(wasteTypes);
+    const quantities = Object.values(wasteTypes);
+    
+    const colors = [
+        'rgba(34, 197, 94, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(251, 191, 36, 0.8)',
+        'rgba(245, 101, 101, 0.8)',
+        'rgba(147, 51, 234, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(236, 72, 153, 0.8)',
+        'rgba(14, 165, 233, 0.8)'
+    ];
+    
+    wasteTypeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: types,
+            datasets: [{
+                data: quantities,
+                backgroundColor: colors.slice(0, types.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+});
+</script>
+
 <script>
 // Generic Modal Functions (from base.html or defined here)
 if (typeof openModal === 'undefined') {

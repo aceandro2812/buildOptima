@@ -47,6 +47,89 @@ logger = logging.getLogger(__name__)
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
 
+# --- Serialization Helper Functions ---
+def serialize_cost(cost):
+    """Convert Cost SQLAlchemy object to dictionary for JSON serialization."""
+    # Handle date serialization safely
+    date_recorded = None
+    if cost.date_recorded:
+        if hasattr(cost.date_recorded, 'isoformat'):
+            date_recorded = cost.date_recorded.isoformat()
+        else:
+            date_recorded = str(cost.date_recorded)
+    
+    return {
+        'id': cost.id,
+        'material_id': cost.material_id,
+        'supplier_id': cost.supplier_id,
+        'unit_price': float(cost.unit_price) if cost.unit_price else 0.0,
+        'quantity_purchased': float(cost.quantity_purchased) if cost.quantity_purchased else 0.0,
+        'total_cost': float(cost.total_cost) if cost.total_cost else 0.0,
+        'date_recorded': date_recorded,
+        'notes': cost.notes,
+        'material': {
+            'material_name': cost.material.material_name if cost.material else None,
+            'unit': cost.material.unit if cost.material else None
+        } if cost.material else None,
+        'supplier': {
+            'name': cost.supplier.name if cost.supplier else None
+        } if cost.supplier else None
+    }
+
+def serialize_consumption(consumption):
+    """Convert Consumption SQLAlchemy object to dictionary for JSON serialization."""
+    # Handle date serialization safely
+    date_used = None
+    if consumption.date_used:
+        if hasattr(consumption.date_used, 'isoformat'):
+            date_used = consumption.date_used.isoformat()
+        else:
+            date_used = str(consumption.date_used)
+    
+    return {
+        'id': consumption.id,
+        'material_id': consumption.material_id,
+        'project_id': consumption.project_id,
+        'quantity_used': float(consumption.quantity_used) if consumption.quantity_used else 0.0,
+        'date_used': date_used,
+        'notes': consumption.notes,
+        'material': {
+            'material_name': consumption.material.material_name if consumption.material else None,
+            'unit': consumption.material.unit if consumption.material else None
+        } if consumption.material else None,
+        'project_rel': {
+            'name': consumption.project_rel.name if consumption.project_rel else None
+        } if consumption.project_rel else None
+    }
+
+def serialize_waste(waste):
+    """Convert Waste SQLAlchemy object to dictionary for JSON serialization."""
+    # Handle date serialization safely
+    date_wasted = None
+    if waste.date_recorded:
+        if hasattr(waste.date_recorded, 'isoformat'):
+            date_wasted = waste.date_recorded.isoformat()
+        else:
+            date_wasted = str(waste.date_recorded)
+    
+    return {
+        'id': waste.id,
+        'material_id': waste.material_id,
+        'project_id': waste.project_id,
+        'quantity_wasted': float(waste.quantity_wasted) if waste.quantity_wasted else 0.0,
+        'date_wasted': date_wasted,
+        'reason': waste.reason,
+        'preventive_measures': waste.preventive_measures,
+        'material_name': waste.material.material_name if waste.material else None,
+        'project_name': waste.project_rel.name if waste.project_rel else None,
+        'material': {
+            'material_name': waste.material.material_name if waste.material else None
+        } if waste.material else None,
+        'project_rel': {
+            'name': waste.project_rel.name if waste.project_rel else None
+        } if waste.project_rel else None
+    }
+
 app = FastAPI(title="BuildOptima - Construction Material Manager")
 
 # Mount static files & Setup templates
@@ -133,7 +216,8 @@ async def suppliers_page(request: Request, db: Session = Depends(get_db)):
 async def consumption_page(request: Request, db: Session = Depends(get_db)):
     """Serves the consumption logging page, passing projects and materials list."""
     try:
-        consumption_data = get_consumption_data(db)
+        consumption_data_raw = get_consumption_data(db)
+        consumption_data = [serialize_consumption(c) for c in consumption_data_raw]
         materials = get_inventory(db)
         projects = get_projects(db)
     except Exception as e:
@@ -152,7 +236,8 @@ async def consumption_page(request: Request, db: Session = Depends(get_db)):
 async def costs_page(request: Request, db: Session = Depends(get_db)):
     """Serves the cost tracking page."""
     try:
-        cost_data = get_cost_data(db)
+        cost_data_raw = get_cost_data(db)
+        cost_data = [serialize_cost(c) for c in cost_data_raw]
         materials = get_inventory(db)
         suppliers = get_suppliers(db)
     except Exception as e:
@@ -185,7 +270,8 @@ async def materials_page(request: Request, db: Session = Depends(get_db)):
 async def waste_page(request: Request, db: Session = Depends(get_db)):
     """Serves the waste/debris logging page, passing projects and materials list."""
     try:
-        waste_records = get_waste_data(db)
+        waste_records_raw = get_waste_data(db)
+        waste_records = [serialize_waste(w) for w in waste_records_raw]
         materials = get_inventory(db)
         projects = get_projects(db)
     except Exception as e:

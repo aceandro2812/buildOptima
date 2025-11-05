@@ -163,37 +163,83 @@ def analyze_data_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
 
     # Prepare a summary of the fetched data for the LLM prompt
     # Use the agent's internal WasteRecord structure
-    data_summary_for_llm = [
-        f"Material '{r.material_name}' ({r.quantity_wasted} {r.unit}) from Project '{r.project_name}', Reason: {r.reason[:50]}..."
-        for r in raw_data[:10] # Limit preview size
-    ]
-    prompt = f"""
-    You are a construction waste analyst for a site in Thane, India.
-    Based *only* on the provided data preview and total record count, provide a concise summary highlighting:
-    - The most common types of materials wasted (if apparent from preview).
-    - The total number of waste records fetched ({len(raw_data)}).
-    - Any recurring reasons for waste (if apparent from preview).
-    - Mention project names if they appear frequently in the preview.
+    data_summary_for_llm = []
+    for r in raw_data[:10]:  # Limit preview size
+        try:
+            # Safely handle potentially None values
+            material_name = r.material_name or "Unknown Material"
+            quantity_wasted = r.quantity_wasted or 0
+            unit = r.unit or "units"
+            project_name = r.project_name or "Unknown Project"
+            reason = (r.reason or "No reason provided")[:50]
+            
+            summary_item = f"Material '{material_name}' ({quantity_wasted} {unit}) from Project '{project_name}', Reason: {reason}..."
+            data_summary_for_llm.append(summary_item)
+        except Exception as e:
+            logging.warning(f"Error processing waste record: {e}")
+            continue
+    
+    # Ensure we have some data to analyze
+    if not data_summary_for_llm:
+        logging.warning("No valid waste data found for analysis")
+        state['waste_summary'] = "No valid waste data available for analysis."
+        state['error_message'] = "No valid waste data found"
+        return state
+    
+    prompt = f"""You are a construction waste analyst for a site in Thane, India.
+Based on the provided data preview and total record count, provide a concise summary highlighting:
+- The most common types of materials wasted (if apparent from preview)
+- The total number of waste records fetched ({len(raw_data)})
+- Any recurring reasons for waste (if apparent from preview)
+- Mention project names if they appear frequently in the preview
 
-    Data Preview (up to 10 records):
-    {json.dumps(data_summary_for_llm, indent=2)}
+Data Preview (up to 10 records):
+{chr(10).join(data_summary_for_llm)}
 
-    Generate a brief summary paragraph.
-    """
-    messages = [ SystemMessage(content=prompt) ]
+Generate a brief summary paragraph about the waste patterns observed."""
+    # Validate prompt content before sending to LLM
+    if not prompt or len(prompt.strip()) < 10:
+        logging.error(f"Prompt is too short or empty: '{prompt[:100]}...'")
+        state['error_message'] = "Generated prompt is empty or too short"
+        state['waste_summary'] = "Error: Unable to generate analysis prompt."
+        return state
+    
+    logging.info(f"Sending prompt to LLM (length: {len(prompt)} chars)")
+    logging.info(f"Prompt preview: {prompt[:200]}...")
+    
+    # Try to clean the prompt content for Minimax
+    cleaned_prompt = prompt.strip().replace('\n\n\n', '\n\n').replace('\t', ' ')
+    if not cleaned_prompt:
+        logging.error("Cleaned prompt is empty")
+        state['error_message'] = "Cleaned prompt is empty"
+        state['waste_summary'] = "Error: Prompt cleaning resulted in empty content."
+        return state
+    
+    # Use HumanMessage for Minimax compatibility
+    messages = [HumanMessage(content=cleaned_prompt)]
+    
     try:
         response = llm.invoke(messages)
-        summary = response.content
-        state['waste_summary'] = summary
+        if not response or not response.content:
+            logging.error("LLM returned empty response")
+            state['error_message'] = "LLM returned empty response"
+            state['waste_summary'] = "Error: LLM analysis failed to generate content."
+        else:
+            summary = response.content.strip()
+            state['waste_summary'] = summary
+            logging.info(f"Waste data summary generated successfully (length: {len(summary)} chars)")
+        
         if 'messages' not in state or not isinstance(state['messages'], list):
             state['messages'] = []
-        state['messages'] = state['messages'] + [response]
-        logging.info("Waste data summary generated.")
+        state['messages'] = state['messages'] + [response] if response else []
+        
     except Exception as e:
         logging.error(f"LLM invocation failed during analysis: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during analysis: {e}"
+        state['error_message'] = f"LLM error during analysis: {str(e)}"
         state['waste_summary'] = "Error during analysis."
-        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during analysis: {e}")]
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during analysis: {str(e)}")]
     return state
 
 # --- Updated disposal_research_node ---
@@ -223,32 +269,55 @@ def disposal_research_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
         return state
 
     # Formulate query using LLM based on summary and waste types
+    # Safely get waste summary and ensure it's not empty
+    waste_summary = state.get('waste_summary', '').strip()
+    if not waste_summary:
+        waste_summary = "Construction waste analysis data available"
+    
+    # Ensure we have waste types to work with
+    waste_types_str = ', '.join(waste_types[:4]) if waste_types else "construction materials"
+    
     # Refined prompt for query formulation
-    query_formulation_prompt = f"""
-    Based on the waste summary and identified waste types below, formulate a concise and effective web search query to find specific recycling facilities, disposal sites, associated costs (if possible), and eco-friendly options for construction waste in {location}. Focus on the most prominent waste types mentioned.
+    query_formulation_prompt = f"""Based on the waste summary and identified waste types below, formulate a concise web search query to find recycling facilities, disposal sites, and eco-friendly options for construction waste in {location}.
 
-    Identified waste types include: {', '.join(waste_types[:4])}... (Total types: {len(waste_types)})
-    Waste Summary Context: {state.get('waste_summary', 'N/A')}
+Identified waste types: {waste_types_str} (Total types: {len(waste_types)})
+Waste Summary: {waste_summary}
 
-    Generate ONLY the search query string. Example: 'concrete debris recycling Thane cost'
-    """
-    messages = [SystemMessage(content=query_formulation_prompt)]
+Generate ONLY the search query string. Example: 'concrete debris recycling Thane cost'"""
+    # Validate prompt content before sending to LLM
+    if not query_formulation_prompt or len(query_formulation_prompt.strip()) < 10:
+        logging.error(f"Query formulation prompt is too short or empty: '{query_formulation_prompt[:100]}...'")
+        state['error_message'] = "Generated query formulation prompt is empty or too short"
+        state['disposal_options'] = "Error: Unable to generate search query prompt."
+        return state
+    
+    logging.info(f"Sending query formulation prompt to LLM (length: {len(query_formulation_prompt)} chars)")
+    messages = [HumanMessage(content=query_formulation_prompt)]
 
     formulated_query = None
     try:
         response = llm.invoke(messages)
+        if not response or not response.content:
+            logging.error("LLM returned empty response for query formulation")
+            state['error_message'] = "LLM returned empty response for query formulation"
+            state['disposal_options'] = "Error: LLM failed to generate search query."
+            return state
+        
         # Clean up LLM output to get just the query string
         formulated_query = response.content.strip().strip('"').strip("'").strip()
         logging.info(f"LLM formulated search query: {formulated_query}")
+        
         if 'messages' not in state or not isinstance(state['messages'], list):
             state['messages'] = []
         state['messages'] = state['messages'] + [response] # Log LLM response
 
     except Exception as e:
         logging.error(f"LLM invocation failed during disposal query formulation: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during disposal research prep: {e}"
+        state['error_message'] = f"LLM error during disposal research prep: {str(e)}"
         state['disposal_options'] = "Error: Could not formulate search query."
-        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during disposal research prep: {e}")]
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during disposal research prep: {str(e)}")]
         return state # Stop if query formulation fails
 
     # *** Perform Local Web Search ***
@@ -306,35 +375,59 @@ def reduction_strategy_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
     waste_types = list(set(item.material_name for item in raw_data if item.material_name and item.material_name != "N/A"))
     waste_types_str = ', '.join(waste_types[:5]) + ('...' if len(waste_types) > 5 else '')
 
-    prompt = f"""
-    You are a construction efficiency expert specializing in waste reduction in Thane, India.
-    Based on the waste summary, identified waste types, and potentially relevant disposal options found, suggest 3-5 practical, actionable, and locally relevant strategies to reduce construction waste.
-    Consider material sourcing, handling, site practices, and potential reuse/recycling avenues mentioned in the disposal context. Tailor suggestions to the specific types of waste identified if possible.
+    # Ensure we have valid content for the prompt
+    if not waste_summary or waste_summary.strip() == "No waste summary available.":
+        waste_summary = "Construction waste data analysis completed"
+    
+    if not waste_types_str:
+        waste_types_str = "construction materials"
+    
+    if not disposal_context or disposal_context.strip() == "No disposal research performed.":
+        disposal_context = "General disposal and recycling options for construction waste"
+    
+    prompt = f"""You are a construction efficiency expert specializing in waste reduction in Thane, India.
+Based on the waste summary, identified waste types, and disposal options, suggest 3-5 practical strategies to reduce construction waste.
 
-    Waste Summary:
-    {waste_summary}
+Waste Summary: {waste_summary}
 
-    Identified Waste Types: {waste_types_str}
+Identified Waste Types: {waste_types_str}
 
-    Disposal/Recycling Context (from web search):
-    {disposal_context[:700]}...
+Disposal Context: {disposal_context[:500]}
 
-    Generate concise, bulleted recommendations.
-    """
-    messages = [ SystemMessage(content=prompt) ]
+Generate concise, bulleted recommendations for waste reduction."""
+    
+    # Validate prompt content before sending to LLM
+    if not prompt or len(prompt.strip()) < 10:
+        logging.error(f"Reduction strategies prompt is too short or empty: '{prompt[:100]}...'")
+        state['error_message'] = "Generated reduction strategies prompt is empty or too short"
+        state['reduction_strategies'] = "Error: Unable to generate reduction strategies prompt."
+        return state
+    
+    logging.info(f"Sending reduction strategies prompt to LLM (length: {len(prompt)} chars)")
+    messages = [HumanMessage(content=prompt)]
+    
     try:
         response = llm.invoke(messages)
-        strategies = response.content
-        state['reduction_strategies'] = strategies
+        if not response or not response.content:
+            logging.error("LLM returned empty response for reduction strategies")
+            state['error_message'] = "LLM returned empty response for reduction strategies"
+            state['reduction_strategies'] = "Error: LLM failed to generate reduction strategies."
+        else:
+            strategies = response.content.strip()
+            state['reduction_strategies'] = strategies
+            logging.info(f"Reduction strategies generated successfully (length: {len(strategies)} chars)")
+        
         if 'messages' not in state or not isinstance(state['messages'], list):
             state['messages'] = []
-        state['messages'] = state['messages'] + [response]
-        logging.info("Reduction strategies generated.")
+        state['messages'] = state['messages'] + [response] if response else []
+        
     except Exception as e:
         logging.error(f"LLM invocation failed during strategy generation: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during strategy generation: {e}"
+        state['error_message'] = f"LLM error during strategy generation: {str(e)}"
         state['reduction_strategies'] = "Error during strategy generation."
-        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during strategy generation: {e}")]
+        if 'messages' not in state or not isinstance(state['messages'], list):
+            state['messages'] = []
+        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during strategy generation: {str(e)}")]
     return state
 
 def compile_report_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
@@ -352,50 +445,76 @@ def compile_report_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
         [r.model_dump(exclude={'id'}) for r in state.get('raw_waste_data', [])[:3]], indent=2
     )
 
-    summary_prompt = f"""
-    Compile a professional waste analysis report for a construction site manager in Thane, India.
+    # Safely get all the content for the report
+    waste_summary = state.get('waste_summary', '').strip()
+    if not waste_summary:
+        waste_summary = "Analysis could not be performed."
+    
+    disposal_options = state.get('disposal_options', '').strip()
+    if not disposal_options:
+        disposal_options = "Research could not be performed or is pending."
+    
+    reduction_strategies = state.get('reduction_strategies', '').strip()
+    if not reduction_strategies:
+        reduction_strategies = "Suggestions could not be generated."
+    
+    # Ensure raw_data_summary is not empty
+    if not raw_data_summary or raw_data_summary.strip() == "[]":
+        raw_data_summary = "No raw data available"
+    
+    summary_prompt = f"""Compile a professional waste analysis report for a construction site manager in Thane, India.
 
-    **Instructions:**
-    1.  **Structure:** Use the following Markdown H2 headings ONLY: `## Executive Summary`, `## Waste Analysis`, `## Disposal Options`, `## Reduction Strategies`.
-    2.  **Tone:** Write in clear, concise, and professional natural language. Avoid jargon where possible.
-    3.  **Formatting:**
-        * Use standard paragraphs for explanations.
-        * Use bullet points (`*` or `-`) for lists (like summary points or strategies).
-        * **IMPORTANT:** Do NOT use markdown bolding (`**text**`) simply to create labels within sentences (e.g., avoid "**Material:** Steel"). Instead, write naturally (e.g., "The primary material found was steel..."). Use bolding only for emphasis where appropriate in standard writing.
-    4.  **Content:** Synthesize the provided analysis information under the correct headings. Start with a brief Executive Summary (2-3 key takeaways from the analysis and strategies). If analysis steps were skipped or failed (e.g., "Disposal research skipped"), mention this appropriately in the relevant sections.
+Structure: Use these Markdown H2 headings: ## Executive Summary, ## Waste Analysis, ## Disposal Options, ## Reduction Strategies
 
-    **Available Information:**
-    Waste Summary Info:
-    {state.get('waste_summary', 'Analysis could not be performed.')}
+Tone: Clear, concise, professional language. Avoid jargon.
 
-    Disposal Options Info (summarize findings from web search, mention if skipped/failed):
-    {state.get('disposal_options', 'Research could not be performed or is pending.')}
+Content: Synthesize the provided analysis information under the correct headings.
 
-    Reduction Strategies Info:
-    {state.get('reduction_strategies', 'Suggestions could not be generated.')}
+Available Information:
+Waste Summary: {waste_summary}
 
-    **Raw Data Snippet (for context only, do not include in report):**
-    {raw_data_summary}...
+Disposal Options: {disposal_options}
 
-    Generate the final report following these instructions precisely. Add a timestamp and location context at the beginning, and a concluding note about data limitations/placeholders at the end.
-    """
-    messages = [SystemMessage(content=summary_prompt)]
+Reduction Strategies: {reduction_strategies}
+
+Generate the final report following these instructions. Add timestamp and location context."""
+    # Validate prompt content before sending to LLM
+    if not summary_prompt or len(summary_prompt.strip()) < 10:
+        logging.error(f"Report compilation prompt is too short or empty: '{summary_prompt[:100]}...'")
+        state['error_message'] = "Generated report compilation prompt is empty or too short"
+        state['final_report'] = "## Report Error\n\nUnable to generate report compilation prompt."
+        return state
+    
+    logging.info(f"Sending report compilation prompt to LLM (length: {len(summary_prompt)} chars)")
+    messages = [HumanMessage(content=summary_prompt)]
+    
     try:
         response = llm.invoke(messages)
-        report_content = response.content
-        timestamp = f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation Context: Thane, Maharashtra, India\n\n"
-        if not report_content.strip().startswith("Report Generated:"):
-            report_content = timestamp + report_content
-        if "Note:" not in report_content[-200:]:
-            report_content += "\n\n---\n*Note: This report is based on available data and AI analysis. Disposal options require verification based on search results.*" # Updated note
-        state['final_report'] = report_content.strip()
-        state['messages'] = state['messages'] + [response, SystemMessage(content="Final report compiled successfully.")]
-        logging.info("Report compiled successfully using LLM with natural language instructions.")
+        if not response or not response.content:
+            logging.error("LLM returned empty response for report compilation")
+            state['error_message'] = "LLM returned empty response for report compilation"
+            state['final_report'] = "## Report Error\n\nLLM failed to generate report content."
+        else:
+            report_content = response.content.strip()
+            timestamp = f"Report Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\nLocation Context: Thane, Maharashtra, India\n\n"
+            
+            if not report_content.startswith("Report Generated:"):
+                report_content = timestamp + report_content
+            
+            if "Note:" not in report_content[-200:]:
+                report_content += "\n\n---\n*Note: This report is based on available data and AI analysis. Disposal options require verification based on search results.*"
+            
+            state['final_report'] = report_content
+            logging.info(f"Report compiled successfully (length: {len(report_content)} chars)")
+        
+        state['messages'] = state['messages'] + [response] if response else []
+        state['messages'] = state['messages'] + [SystemMessage(content="Final report compiled successfully.")]
+        
     except Exception as e:
         logging.error(f"LLM invocation failed during report compilation: {e}", exc_info=True)
-        state['error_message'] = f"LLM error during report compilation: {e}"
-        state['final_report'] = f"## Report Error\n\nFailed to compile report using LLM due to an error:\n\n* **Error:** {e}"
-        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during report compilation: {e}")]
+        state['error_message'] = f"LLM error during report compilation: {str(e)}"
+        state['final_report'] = f"## Report Error\n\nFailed to compile report using LLM due to an error:\n\n* **Error:** {str(e)}"
+        state['messages'] = state['messages'] + [SystemMessage(content=f"Error during report compilation: {str(e)}")]
     return state
 
 

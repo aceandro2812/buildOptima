@@ -45,6 +45,70 @@
       </div>
     </div>
 
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Consumption Trends Chart -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Consumption Trends Over Time</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="consumptionTrendsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Material Usage Distribution -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Material Usage Distribution</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="materialUsageChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Consumption Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-orange-100 rounded-lg">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Total Records</p>
+            <p id="total-records" class="text-2xl font-bold text-orange-600">0</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-red-100 rounded-lg">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Most Used Material</p>
+            <p id="top-material" class="text-2xl font-bold text-red-600">-</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-purple-100 rounded-lg">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">This Week</p>
+            <p id="week-consumption" class="text-2xl font-bold text-purple-600">0</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
         <h3 class="text-xl font-semibold text-gray-800 mb-3 mt-8">Consumption Log</h3>
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             <div class="overflow-x-auto">
@@ -76,7 +140,7 @@
                                 {% endif %}
                             </td>
                             {# --- End Project Name Display --- #}
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_used.strftime('%Y-%m-%d %H:%M') if record.date_used else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_used[:16].replace('T', ' ') if record.date_used else 'N/A' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.notes or '-' }}</td>
                         </tr>
                         {% endfor %}
@@ -149,6 +213,181 @@
          {# --- End Add Consumption Modal --- #}
     </div>
 </div>
+
+<!-- Chart.js CDN - UMD version to avoid module import errors -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let consumptionTrendsChart = null;
+let materialUsageChart = null;
+
+function initializeCharts() {
+    // Process consumption data for charts
+    const consumptionData = {{ consumption_data | tojson }};
+    
+    // Calculate summary statistics
+    let totalRecords = consumptionData.length;
+    let weekConsumption = 0;
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    
+    const materialUsage = {};
+    const dailyConsumption = {};
+    
+    consumptionData.forEach(record => {
+        const quantity = parseFloat(record.quantity_used || 0);
+        
+        // Check if this week
+        const recordDate = new Date(record.date_used);
+        if (recordDate >= oneWeekAgo) {
+            weekConsumption += quantity;
+        }
+        
+        // Group by material
+        const materialName = record.material?.material_name || 'Unknown';
+        materialUsage[materialName] = (materialUsage[materialName] || 0) + quantity;
+        
+        // Group by date for trends
+        const dateKey = recordDate.toISOString().split('T')[0];
+        dailyConsumption[dateKey] = (dailyConsumption[dateKey] || 0) + quantity;
+    });
+    
+    // Find most used material
+    let topMaterial = '-';
+    let maxUsage = 0;
+    Object.entries(materialUsage).forEach(([material, usage]) => {
+        if (usage > maxUsage) {
+            maxUsage = usage;
+            topMaterial = material;
+        }
+    });
+    
+    // Update summary cards
+    document.getElementById('total-records').textContent = totalRecords;
+    document.getElementById('top-material').textContent = topMaterial;
+    document.getElementById('week-consumption').textContent = Math.round(weekConsumption);
+    
+    // Create consumption trends chart
+    createConsumptionTrendsChart(dailyConsumption);
+    
+    // Create material usage distribution chart
+    createMaterialUsageChart(materialUsage);
+}
+
+function createConsumptionTrendsChart(dailyConsumption) {
+    const ctx = document.getElementById('consumptionTrendsChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (consumptionTrendsChart) {
+        consumptionTrendsChart.destroy();
+    }
+    
+    const sortedDates = Object.keys(dailyConsumption).sort();
+    const labels = sortedDates.map(date => new Date(date).toLocaleDateString());
+    const data = sortedDates.map(date => dailyConsumption[date]);
+    
+    consumptionTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Daily Consumption',
+                data: data,
+                borderColor: 'rgb(249, 115, 22)',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(0) + ' units';
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 7
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createMaterialUsageChart(materialUsage) {
+    const ctx = document.getElementById('materialUsageChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (materialUsageChart) {
+        materialUsageChart.destroy();
+    }
+    
+    const materials = Object.keys(materialUsage);
+    const usage = Object.values(materialUsage);
+    
+    const colors = [
+        'rgba(249, 115, 22, 0.8)',
+        'rgba(239, 68, 68, 0.8)',
+        'rgba(147, 51, 234, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(251, 191, 36, 0.8)',
+        'rgba(236, 72, 153, 0.8)',
+        'rgba(14, 165, 233, 0.8)'
+    ];
+    
+    materialUsageChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: materials,
+            datasets: [{
+                label: 'Quantity Used',
+                data: usage,
+                backgroundColor: colors.slice(0, materials.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(0) + ' units';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+});
+</script>
 
 <script>
 // --- Modal Handling ---

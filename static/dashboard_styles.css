@@ -18,22 +18,21 @@ body, html {
 }
 
 .dashboard-sidebar {
-    width: 14rem; /* Approx 224px, changed from 56 (which is 14rem) to make it w-56 like in React */
+    width: 14rem; /* Approx 224px */
     flex-shrink: 0;
-    /* For sticky sidebar effect if content scrolls */
-    position: fixed;
-    top: 4rem; /* Below header */
-    left: 0;
-    bottom: 0;
+    /* Remove fixed positioning to fix layout issues */
+    position: relative;
     overflow-y: auto;
-    padding-top: 0.5rem; /* Added padding top */
+    padding-top: 0.5rem;
+    min-height: calc(100vh - 4rem); /* Full height minus header */
 }
 
 .dashboard-main-content {
-    padding-top: 1.5rem; /* Adjust as needed */
-    padding-bottom: 1.5rem; /* Adjust as needed */
-    overflow-y: auto; /* Allow main content to scroll */
+    padding: 1.5rem;
+    overflow-y: auto;
     flex-grow: 1;
+    min-height: calc(100vh - 4rem); /* Full height minus header */
+    margin-left: 0; /* Remove any left margin since sidebar is not fixed */
 }
 
 .stat-card {

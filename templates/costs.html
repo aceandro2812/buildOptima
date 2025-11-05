@@ -45,6 +45,70 @@
       </div>
     </div>
 
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <!-- Cost Trends Chart -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Cost Trends Over Time</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="costTrendsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Material Cost Distribution -->
+      <div class="bg-white rounded-2xl shadow-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Cost Distribution by Material</h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+          <canvas id="materialCostChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cost Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-emerald-100 rounded-lg">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Total Spent</p>
+            <p id="total-cost" class="text-2xl font-bold text-emerald-600">$0.00</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-blue-100 rounded-lg">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">Average Cost</p>
+            <p id="avg-cost" class="text-2xl font-bold text-blue-600">$0.00</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center">
+          <div class="p-2 bg-purple-100 rounded-lg">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+            </svg>
+          </div>
+          <div class="ml-4">
+            <p class="text-sm font-medium text-gray-600">This Month</p>
+            <p id="month-cost" class="text-2xl font-bold text-purple-600">$0.00</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -67,7 +131,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">{{ record.quantity_purchased }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${{ "%.2f"|format(record.unit_price) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">${{ "%.2f"|format(record.total_cost) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_recorded.strftime('%Y-%m-%d') if record.date_recorded else 'N/A' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.date_recorded[:10] if record.date_recorded else 'N/A' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ record.notes or '-' }}</td>
                         </tr>
                         {% endfor %}
@@ -150,6 +214,167 @@
          {# --- End Updated Modal --- #}
     </div>
 </div>
+
+<!-- Chart.js CDN - UMD version to avoid module import errors -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let costTrendsChart = null;
+let materialCostChart = null;
+
+function initializeCharts() {
+    // Process cost data for charts
+    const costData = {{ cost_data | tojson }};
+    
+    // Calculate summary statistics
+    let totalCost = 0;
+    let monthCost = 0;
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const materialCosts = {};
+    const dailyCosts = {};
+    
+    costData.forEach(record => {
+        const cost = parseFloat(record.total_cost || 0);
+        totalCost += cost;
+        
+        // Check if this month
+        const recordDate = new Date(record.date_recorded);
+        if (recordDate.getMonth() === currentMonth && recordDate.getFullYear() === currentYear) {
+            monthCost += cost;
+        }
+        
+        // Group by material
+        const materialName = record.material?.material_name || 'Unknown';
+        materialCosts[materialName] = (materialCosts[materialName] || 0) + cost;
+        
+        // Group by date for trends
+        const dateKey = recordDate.toISOString().split('T')[0];
+        dailyCosts[dateKey] = (dailyCosts[dateKey] || 0) + cost;
+    });
+    
+    const avgCost = costData.length > 0 ? totalCost / costData.length : 0;
+    
+    // Update summary cards
+    document.getElementById('total-cost').textContent = `$${totalCost.toFixed(2)}`;
+    document.getElementById('avg-cost').textContent = `$${avgCost.toFixed(2)}`;
+    document.getElementById('month-cost').textContent = `$${monthCost.toFixed(2)}`;
+    
+    // Create cost trends chart
+    createCostTrendsChart(dailyCosts);
+    
+    // Create material cost distribution chart
+    createMaterialCostChart(materialCosts);
+}
+
+function createCostTrendsChart(dailyCosts) {
+    const ctx = document.getElementById('costTrendsChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (costTrendsChart) {
+        costTrendsChart.destroy();
+    }
+    
+    const sortedDates = Object.keys(dailyCosts).sort();
+    const labels = sortedDates.map(date => new Date(date).toLocaleDateString());
+    const data = sortedDates.map(date => dailyCosts[date]);
+    
+    costTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Daily Costs',
+                data: data,
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(0);
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxTicksLimit: 7
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createMaterialCostChart(materialCosts) {
+    const ctx = document.getElementById('materialCostChart').getContext('2d');
+    
+    // Destroy existing chart
+    if (materialCostChart) {
+        materialCostChart.destroy();
+    }
+    
+    const materials = Object.keys(materialCosts);
+    const costs = Object.values(materialCosts);
+    
+    const colors = [
+        'rgba(16, 185, 129, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(147, 51, 234, 0.8)',
+        'rgba(245, 101, 101, 0.8)',
+        'rgba(251, 191, 36, 0.8)',
+        'rgba(236, 72, 153, 0.8)',
+        'rgba(14, 165, 233, 0.8)',
+        'rgba(168, 85, 247, 0.8)'
+    ];
+    
+    materialCostChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: materials,
+            datasets: [{
+                data: costs,
+                backgroundColor: colors.slice(0, materials.length),
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 20,
+                        usePointStyle: true
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Initialize charts when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+});
+</script>
 
 <script>
 // --- Modal Handling ---
