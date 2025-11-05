@@ -1,4 +1,4 @@
-# agents/debris_agent.py (Absolute Imports, Pydantic V2, DDG Search)
+# agents/debris_agent.py (Absolute Imports, Pydantic V2, Local Web Search)
 
 import os
 import json
@@ -12,7 +12,7 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from pydantic import BaseModel # Use Pydantic V2 directly
 from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun # <-- Import DDG Tool
+from tools.local_search import LocalSearchTool # <-- Import Local Search Tool
 
 # --- Add parent directory to path for standalone execution ---
 if __name__ == "__main__" and __package__ is None:
@@ -114,8 +114,8 @@ def get_waste_database_records() -> List[WasteRecord]:
 # --- End Tool with FIX ---
 
 
-# Initialize the DuckDuckGo Search tool instance
-search_tool = DuckDuckGoSearchRun() # <-- Initialize DDG Tool
+# Initialize the Local Search tool instance
+search_tool = LocalSearchTool(max_results=3) # <-- Initialize Local Search Tool
 
 # --- Agent State Definition ---
 class DebrisAnalysisState(TypedDict):
@@ -251,20 +251,29 @@ def disposal_research_node(state: DebrisAnalysisState) -> DebrisAnalysisState:
         state['messages'] = state['messages'] + [SystemMessage(content=f"Error during disposal research prep: {e}")]
         return state # Stop if query formulation fails
 
-    # *** Perform Actual DuckDuckGo Search ***
+    # *** Perform Local Web Search ***
     if formulated_query:
-        logging.info(f"Performing DDG search for: {formulated_query}")
+        logging.info(f"Performing local web search for: {formulated_query}")
         try:
-            # Use the initialized search_tool directly
-            search_results = search_tool.run(formulated_query)
-            # Process/Store results (maybe summarize later if too long)
-            disposal_info = f"Search results for '{formulated_query}' (Top results):\n{search_results[:1500]}..." # Limit length
+            # Use the local search tool for disposal options
+            search_results = search_tool.multi_engine_search(formulated_query)
+            
+            # Format results for disposal context
+            if search_results:
+                disposal_info = f"Search results for '{formulated_query}':\n\n"
+                for i, result in enumerate(search_results, 1):
+                    disposal_info += f"{i}. {result.title}\n"
+                    disposal_info += f"   URL: {result.url}\n"
+                    disposal_info += f"   Info: {result.snippet}\n\n"
+            else:
+                disposal_info = f"No search results found for '{formulated_query}'"
+            
             state['disposal_options'] = disposal_info
-            state['messages'] = state['messages'] + [HumanMessage(content=f"DuckDuckGo Search Results (Truncated):\n{disposal_info}")]
-            logging.info(f"DDG search completed for query: {formulated_query}")
+            state['messages'] = state['messages'] + [HumanMessage(content=f"Local Web Search Results:\n{disposal_info}")]
+            logging.info(f"Local web search completed for query: {formulated_query}")
         except Exception as e:
-            logging.error(f"DuckDuckGo search failed: {e}", exc_info=True)
-            error_msg = f"Error during DuckDuckGo search: {e}"
+            logging.error(f"Local web search failed: {e}", exc_info=True)
+            error_msg = f"Error during local web search: {e}"
             state['disposal_options'] = f"Failed to perform search for query '{formulated_query}'. Error: {e}"
             # Decide if this is a critical error for the state
             # state['error_message'] = error_msg # Uncomment if search failure should halt the process

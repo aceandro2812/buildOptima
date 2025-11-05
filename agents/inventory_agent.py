@@ -1,4 +1,4 @@
-# agents/inventory_agent.py (Absolute Imports, Pydantic V2, DDG Search)
+# agents/inventory_agent.py (Absolute Imports, Pydantic V2, Local Web Search)
 
 import os
 import json
@@ -12,7 +12,7 @@ from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage
 from pydantic import BaseModel
 from langgraph.graph import StateGraph, END
 from langchain_core.tools import tool
-from langchain_community.tools import DuckDuckGoSearchRun # Import DuckDuckGo tool
+from tools.local_search import search_material_prices # Import local search tool
 
 # --- Add parent directory to path for standalone execution ---
 if __name__ == "__main__" and __package__ is None:
@@ -246,8 +246,7 @@ def get_cost_history(days_limit: int = 180) -> List[CostRecord]:
         db.close()
         return result
 
-# Initialize the DuckDuckGo Search tool instance
-search_tool = DuckDuckGoSearchRun()
+# Local search tool is imported as a function - no initialization needed
 
 # --- Agent State Definition ---
 class InventoryAnalysisState(TypedDict):
@@ -408,18 +407,18 @@ def optimize_inventory_node(state: InventoryAnalysisState) -> InventoryAnalysisS
     except Exception as parse_error:
         logging.warning(f"Could not parse top material from consumption analysis for price search: {parse_error}")
 
-    # *** Perform Actual DuckDuckGo Search ***
+    # *** Perform Local Web Search ***
     if top_material_search_query:
-        logging.info(f"Performing DDG search for: {top_material_search_query}")
+        logging.info(f"Performing local web search for: {top_material_search_query}")
         try:
-            # Use the initialized search_tool directly
-            price_search_results = search_tool.run(top_material_search_query)
+            # Use our local search tool for material pricing
+            price_search_results = search_material_prices(match, "Thane")
             # Limit result length for context window
-            price_context = f"Recent price context search results for '{match}' in Thane (Top results):\n{price_search_results[:1000]}..." # Limit to 1000 chars
-            logging.info(f"DDG search completed for {match}.")
+            price_context = f"Recent price context search results for '{match}' in Thane:\n{price_search_results[:1500]}..." # Limit to 1500 chars
+            logging.info(f"Local web search completed for {match}.")
             state['price_trends'] = price_context # Store search result/summary
         except Exception as e:
-            logging.error(f"DuckDuckGo search failed: {e}", exc_info=True)
+            logging.error(f"Local web search failed: {e}", exc_info=True)
             price_context = f"Failed to perform price search for {match}. Error: {e}"
             state['price_trends'] = price_context # Store error message
     # *** End Search Logic ***

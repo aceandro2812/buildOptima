@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "vibe-check": {
+      "command": "uvx",
+      "args": [
+        "vibe-check-mcp"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "check_vibe",
+        "get_vibe_suggestions"
+      ]
+    },
+    "vibe-check-mcp-server": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@PV-Bhat/vibe-check-mcp-server",
+        "--key",
+        "1bb8ef4a-81c8-4f12-bb4b-fe6b925ea85f"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "vibe_check",
+        "vibe_learn"
+      ]
+    }
+  }
+}

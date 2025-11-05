@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Test - Chart Sizing</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
+    <style>
+        /* Chart Container Fixes - Prevents continuous growth */
+        .chart-container {
+            position: relative !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            overflow: hidden;
+        }
+
+        .chart-container canvas {
+            max-width: 100% !important;
+            max-height: 100% !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Dashboard Chart Test</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Bar Chart Test -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Bar Chart Test</h3>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="test-bar-chart"></canvas>
+                </div>
+                <button onclick="updateBarChart()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Update Data</button>
+            </div>
+
+            <!-- Doughnut Chart Test -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Doughnut Chart Test</h3>
+                <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+                    <canvas id="test-doughnut-chart"></canvas>
+                </div>
+                <button onclick="updateDoughnutChart()" class="mt-4 px-4 py-2 bg-green-500 text-white rounded">Update Data</button>
+            </div>
+        </div>
+
+        <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Test Results</h3>
+            <div id="test-results" class="space-y-2 text-sm">
+                <p>Click the update buttons multiple times to test if charts grow continuously.</p>
+                <p>Charts should maintain their container size and not exceed the fixed height of 300px.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js global defaults
+        Chart.defaults.responsive = true;
+        Chart.defaults.maintainAspectRatio = false;
+
+        let barChart = null;
+        let doughnutChart = null;
+
+        // Initialize charts
+        function initCharts() {
+            // Bar Chart
+            const barCtx = document.getElementById('test-bar-chart').getContext('2d');
+            barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Material A', 'Material B', 'Material C', 'Material D'],
+                    datasets: [{
+                        label: 'Variance (₹)',
+                        data: [12000, 8500, 15000, 6200],
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        borderWidth: 2,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+
+            // Doughnut Chart
+            const doughnutCtx = document.getElementById('test-doughnut-chart').getContext('2d');
+            doughnutChart = new Chart(doughnutCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Exceeded', 'Under Budget', 'No Estimate'],
+                    datasets: [{
+                        data: [5, 12, 3],
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(156, 163, 175, 0.8)'
+                        ],
+                        borderWidth: 2,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%'
+                }
+            });
+        }
+
+        function updateBarChart() {
+            if (barChart) {
+                // Generate random data
+                const newData = Array.from({length: 4}, () => Math.floor(Math.random() * 20000));
+                barChart.data.datasets[0].data = newData;
+                barChart.update();
+                
+                logTest('Bar chart updated with new data. Size should remain constant.');
+            }
+        }
+
+        function updateDoughnutChart() {
+            if (doughnutChart) {
+                // Generate random data
+                const newData = Array.from({length: 3}, () => Math.floor(Math.random() * 15) + 1);
+                doughnutChart.data.datasets[0].data = newData;
+                doughnutChart.update();
+                
+                logTest('Doughnut chart updated with new data. Size should remain constant.');
+            }
+        }
+
+        function logTest(message) {
+            const resultsDiv = document.getElementById('test-results');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('p');
+            logEntry.className = 'text-blue-600';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            resultsDiv.appendChild(logEntry);
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initCharts);
+
+        // Test resize handling
+        window.addEventListener('resize', function() {
+            if (barChart) barChart.resize();
+            if (doughnutChart) doughnutChart.resize();
+            logTest('Window resized - charts should adapt without growing.');
+        });
+    </script>
+</body>
+</html>

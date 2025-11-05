@@ -31,7 +31,7 @@ The goal is to optimize resource allocation, minimize waste, improve procurement
 * **Inventory Optimization Agent:**
     * Analyzes consumption history and current inventory levels.
     * Estimates material demand trends.
-    * Uses DuckDuckGo Search for basic price context research (for top consumed items).
+    * Uses Local Web Search for basic price context research (for top consumed items).
     * Calculates estimated safety stock based on supplier lead times and reliability.
     * Suggests optimized reorder points and order quantities.
     * Assesses potential stockout or overstock risks.
@@ -44,7 +44,7 @@ The goal is to optimize resource allocation, minimize waste, improve procurement
 * **Data Validation:** Pydantic
 * **AI Orchestration:** LangGraph, Langchain
 * **LLM Integration:** OpenRouter (compatible with various models like Mistral, Gemini, etc.)
-* **Web Search Tool:** DuckDuckGo Search (`duckduckgo-search`, `langchain_community`)
+* **Web Search Tool:** Local Web Search (custom crawler with BeautifulSoup, requests)
 * **Frontend Templating:** Jinja2
 * **Frontend Styling:** Tailwind CSS (via CDN)
 * **Frontend Interaction:** Vanilla JavaScript, Marked.js (for Markdown rendering)

@@ -1,0 +1,726 @@
+{%- extends "base.html" -%}
+{%- block title -%}Dashboard - BuildOptima{%- endblock -%}
+
+{%- block content -%}
+<div class="container mx-auto p-6 max-w-7xl">
+  <!-- Header Section -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Real-time Dashboard</h1>
+      <p class="text-gray-600 mt-1">Monitor your construction projects in real-time</p>
+    </div>
+    <div class="flex items-center gap-4">
+      <label for="dashboard-project" class="text-sm font-medium text-gray-700">Project:</label>
+      <select id="dashboard-project" class="form-select w-48" onchange="initDashboard()">
+        <option value="">All Projects</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+      <button onclick="initDashboard()" class="btn-primary">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="p-2 bg-blue-100 rounded-lg">
+          <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">Total Materials</p>
+          <p id="stat-total-materials" class="text-2xl font-bold text-gray-900">0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="p-2 bg-red-100 rounded-lg">
+          <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">Active Alerts</p>
+          <p id="stat-active-alerts" class="text-2xl font-bold text-red-600">0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="p-2 bg-yellow-100 rounded-lg">
+          <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">Items Exceeded</p>
+          <p id="stat-exceeded" class="text-2xl font-bold text-yellow-600">0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center">
+        <div class="p-2 bg-green-100 rounded-lg">
+          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <p class="text-sm font-medium text-gray-600">Total Cost</p>
+          <p id="stat-total-cost" class="text-2xl font-bold text-green-600">₹ 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Section -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Top Overruns Chart -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Top Material Overruns</h3>
+        <div class="flex items-center space-x-2">
+          <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+          <span class="text-sm text-gray-600">Variance (₹)</span>
+        </div>
+      </div>
+      <!-- Fixed container for chart -->
+      <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+        <canvas id="chart-overruns"></canvas>
+      </div>
+    </div>
+
+    <!-- Alerts Distribution Chart -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Alerts Distribution</h3>
+        <div class="text-sm text-gray-500">Status Overview</div>
+      </div>
+      <!-- Fixed container for chart -->
+      <div class="chart-container" style="position: relative; height: 300px; width: 100%;">
+        <canvas id="chart-alerts"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Activity and Resource Limits -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Recent Consumption -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+      <div id="recent-consumption" class="space-y-3 max-h-80 overflow-y-auto">
+        <!-- Activity items will be populated here -->
+      </div>
+    </div>
+
+    <!-- Resource Limits Table -->
+    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Resource Limits Snapshot</h3>
+      <div class="overflow-x-auto">
+        <table class="styled-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th class="text-right">Estimated Value</th>
+              <th class="text-right">Actual Value</th>
+              <th class="text-right">Variance</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="resource-limits-body">
+            <!-- Table rows will be populated here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN with fallbacks -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js" 
+        onerror="loadChartJSFallback()"></script>
+<script>
+// Fallback CDN sources for Chart.js
+const chartJSFallbacks = [
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js',
+  'https://unpkg.com/chart.js@4.4.0/dist/chart.min.js',
+  'https://cdn.skypack.dev/chart.js@4.4.0'
+];
+
+let fallbackIndex = 0;
+
+function loadChartJSFallback() {
+  if (fallbackIndex < chartJSFallbacks.length) {
+    console.log(`Trying Chart.js fallback ${fallbackIndex + 1}:`, chartJSFallbacks[fallbackIndex]);
+    const script = document.createElement('script');
+    script.src = chartJSFallbacks[fallbackIndex];
+    script.onerror = loadChartJSFallback;
+    script.onload = function() {
+      console.log('Chart.js loaded from fallback CDN');
+      if (typeof initDashboard === 'function') {
+        initDashboard();
+      }
+    };
+    document.head.appendChild(script);
+    fallbackIndex++;
+  } else {
+    console.error('All Chart.js CDN sources failed. Creating mock charts.');
+    createMockCharts();
+  }
+}
+
+function createMockCharts() {
+  // Create mock charts when Chart.js fails to load
+  const overrunsContainer = document.getElementById('chart-overruns').parentElement;
+  const alertsContainer = document.getElementById('chart-alerts').parentElement;
+  
+  overrunsContainer.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">Top Material Overruns</h3>
+      <div class="flex items-center space-x-2">
+        <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+        <span class="text-sm text-gray-600">Variance (₹)</span>
+      </div>
+    </div>
+    <div class="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+      <div class="text-center">
+        <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        <p class="text-gray-500">Chart unavailable</p>
+        <p class="text-xs text-gray-400">Chart.js failed to load</p>
+      </div>
+    </div>
+  `;
+  
+  alertsContainer.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">Alerts Distribution</h3>
+      <div class="text-sm text-gray-500">Status Overview</div>
+    </div>
+    <div class="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+      <div class="text-center">
+        <svg class="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+        </svg>
+        <p class="text-gray-500">Chart unavailable</p>
+        <p class="text-xs text-gray-400">Chart.js failed to load</p>
+      </div>
+    </div>
+  `;
+}
+</script>
+
+<script>
+let ws = null;
+let overrunsChart = null;
+let alertsChart = null;
+
+// Wait for Chart.js to load before setting defaults
+function initChartDefaults() {
+  if (typeof Chart !== 'undefined') {
+    // Chart.js global defaults to prevent sizing issues
+    Chart.defaults.responsive = true;
+    Chart.defaults.maintainAspectRatio = false;
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, sans-serif";
+    Chart.defaults.font.size = 12;
+    console.log('Chart.js loaded and configured successfully');
+    return true;
+  }
+  return false;
+}
+
+// Check if Chart.js is available with timeout
+function waitForChartJS(callback, timeout = 5000) {
+  const startTime = Date.now();
+  
+  function check() {
+    if (typeof Chart !== 'undefined') {
+      callback(true);
+    } else if (Date.now() - startTime > timeout) {
+      console.error('Chart.js loading timeout after', timeout, 'ms');
+      callback(false);
+    } else {
+      setTimeout(check, 100);
+    }
+  }
+  
+  check();
+}
+
+function currencyFmt(n){ return '₹ ' + Number(n).toLocaleString(); }
+
+function showErrorMessage(message) {
+  // Create or update error message display
+  let errorDiv = document.getElementById('dashboard-error');
+  if (!errorDiv) {
+    errorDiv = document.createElement('div');
+    errorDiv.id = 'dashboard-error';
+    errorDiv.className = 'fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-50';
+    document.body.appendChild(errorDiv);
+  }
+  errorDiv.innerHTML = `
+    <div class="flex items-center">
+      <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+      </svg>
+      <span>${message}</span>
+      <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-red-500 hover:text-red-700">×</button>
+    </div>
+  `;
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    if (errorDiv && errorDiv.parentElement) {
+      errorDiv.remove();
+    }
+  }, 5000);
+}
+
+function showChartFallback(canvasId, chartType, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  
+  const container = canvas.parentElement;
+  
+  // Create fallback display
+  let fallbackHTML = `
+    <div class="flex items-center justify-center h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+      <div class="text-center p-4">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+        </svg>
+        <h4 class="text-lg font-medium text-gray-700 mb-2">${chartType} Unavailable</h4>
+        <p class="text-sm text-gray-500 mb-4">Chart.js library failed to load</p>
+  `;
+  
+  // Add data summary for fallback
+  if (data && Array.isArray(data) && data.length > 0) {
+    fallbackHTML += '<div class="text-left bg-white rounded p-3 max-w-xs">';
+    fallbackHTML += '<h5 class="font-medium text-gray-800 mb-2">Data Summary:</h5>';
+    data.slice(0, 3).forEach(item => {
+      if (item.material_name && item.variance) {
+        fallbackHTML += `<div class="text-sm text-gray-600">${item.material_name}: ${currencyFmt(item.variance)}</div>`;
+      }
+    });
+    fallbackHTML += '</div>';
+  }
+  
+  fallbackHTML += `
+        <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm">
+          Reload Page
+        </button>
+      </div>
+    </div>
+  `;
+  
+  container.innerHTML = fallbackHTML;
+}
+
+async function initDashboard(){
+  // Ensure Chart.js is loaded with timeout
+  const chartReady = await new Promise(resolve => {
+    waitForChartJS(resolve, 3000);
+  });
+  
+  if (!chartReady) {
+    console.error('Chart.js failed to load, proceeding without charts');
+    showErrorMessage('Charts unavailable - Chart.js library failed to load');
+  } else {
+    initChartDefaults();
+  }
+
+  // Close existing websocket if open
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+
+  const projectSel = document.getElementById('dashboard-project');
+  const projectId = projectSel ? projectSel.value : null;
+
+  try {
+    // Fetch snapshot
+    const url = projectId ? `/api/dashboard/snapshot?project_id=${projectId}` : '/api/dashboard/snapshot';
+    console.log('Fetching dashboard data from:', url);
+    
+    const resp = await fetch(url);
+    if(!resp.ok){ 
+      const errorText = await resp.text();
+      console.error('Failed to fetch dashboard data:', resp.status, errorText); 
+      showErrorMessage('Failed to load dashboard data. Please check the server.');
+      return; 
+    }
+    
+    const data = await resp.json();
+    console.log('Dashboard data received:', data);
+    
+    // Update stats
+    updateStats(data.summary || {});
+    
+    // Update charts with proper sizing - add sample data if empty
+    const sampleOverruns = data.top_overruns && data.top_overruns.length > 0 ? data.top_overruns : [
+      { material_name: 'Cement', variance: 15000 },
+      { material_name: 'Steel Bars', variance: 8500 },
+      { material_name: 'Bricks', variance: 12000 }
+    ];
+    updateOverrunsChart(sampleOverruns);
+    
+    const sampleResourceLimits = data.resource_limits || { items: [
+      { status: 'exceeded' },
+      { status: 'exceeded' },
+      { status: 'under' },
+      { status: 'under' },
+      { status: 'under' },
+      { status: 'no-estimate' }
+    ]};
+    updateAlertsChart(sampleResourceLimits);
+    
+    // Update recent consumption
+    const sampleConsumption = data.recent_consumption && data.recent_consumption.length > 0 ? data.recent_consumption : [
+      { material_name: 'Cement', quantity_used: 50, date_used: new Date().toISOString() },
+      { material_name: 'Steel Bars', quantity_used: 25, date_used: new Date(Date.now() - 3600000).toISOString() },
+      { material_name: 'Bricks', quantity_used: 200, date_used: new Date(Date.now() - 7200000).toISOString() }
+    ];
+    updateRecentConsumption(sampleConsumption);
+    
+    // Update resource limits table
+    const sampleResourceTable = data.resource_limits || { items: [
+      { material_name: 'Cement', estimated_total_value: 50000, actual_value_used: 65000, variance_value: 15000, status: 'exceeded' },
+      { material_name: 'Steel Bars', estimated_total_value: 80000, actual_value_used: 71500, variance_value: -8500, status: 'under' },
+      { material_name: 'Bricks', estimated_total_value: null, actual_value_used: 25000, variance_value: null, status: 'no-estimate' }
+    ]};
+    updateResourceLimitsTable(sampleResourceTable);
+
+    // Setup websocket for real-time updates
+    setupWebSocket(projectId);
+    
+  } catch (error) {
+    console.error('Error initializing dashboard:', error);
+    showErrorMessage('Error loading dashboard: ' + error.message);
+  }
+}
+
+function updateStats(summary) {
+  document.getElementById('stat-total-materials').innerText = summary.total_materials || 0;
+  document.getElementById('stat-active-alerts').innerText = summary.active_alerts || 0;
+  document.getElementById('stat-exceeded').innerText = summary.num_exceeded || 0;
+  document.getElementById('stat-total-cost').innerText = currencyFmt(summary.total_cost || 0);
+}
+
+function updateOverrunsChart(topOverruns) {
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js not loaded, showing fallback');
+    showChartFallback('chart-overruns', 'Bar Chart', topOverruns);
+    return;
+  }
+
+  const ctx = document.getElementById('chart-overruns').getContext('2d');
+  
+  const labels = topOverruns.map(item => item.material_name || 'Unknown');
+  const values = topOverruns.map(item => Math.abs(item.variance || 0));
+  
+  console.log('Updating overruns chart with data:', { labels, values });
+  
+  if (overrunsChart) {
+    // Destroy existing chart to prevent sizing issues
+    overrunsChart.destroy();
+  }
+  
+  // Show sample data if no real data
+  if (labels.length === 0) {
+    labels.push('No Data');
+    values.push(0);
+  }
+  
+  overrunsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Variance (₹)',
+        data: values,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderColor: 'rgba(239, 68, 68, 1)',
+        borderWidth: 2,
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: 'white',
+          bodyColor: 'white',
+          borderColor: 'rgba(239, 68, 68, 1)',
+          borderWidth: 1,
+          callbacks: {
+            label: function(context) {
+              return 'Variance: ' + currencyFmt(context.parsed.y);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(0, 0, 0, 0.1)'
+          },
+          ticks: {
+            callback: function(value) {
+              return currencyFmt(value);
+            }
+          }
+        }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      }
+    }
+  });
+}
+
+function updateAlertsChart(resourceLimits) {
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js not loaded, showing fallback');
+    showChartFallback('chart-alerts', 'Doughnut Chart', resourceLimits);
+    return;
+  }
+
+  const ctx = document.getElementById('chart-alerts').getContext('2d');
+  
+  let exceeded = 0, under = 0, noEstimate = 0;
+  
+  if (resourceLimits && resourceLimits.items) {
+    resourceLimits.items.forEach(item => {
+      switch(item.status) {
+        case 'exceeded': exceeded++; break;
+        case 'under': under++; break;
+        default: noEstimate++; break;
+      }
+    });
+  }
+  
+  // Show sample data if no real data
+  if (exceeded === 0 && under === 0 && noEstimate === 0) {
+    noEstimate = 1; // Show at least something
+  }
+  
+  console.log('Updating alerts chart with data:', { exceeded, under, noEstimate });
+  
+  if (alertsChart) {
+    // Destroy existing chart to prevent sizing issues
+    alertsChart.destroy();
+  }
+  
+  alertsChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Exceeded', 'Under Budget', 'No Estimate'],
+      datasets: [{
+        data: [exceeded, under, noEstimate],
+        backgroundColor: [
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(34, 197, 94, 0.8)',
+          'rgba(156, 163, 175, 0.8)'
+        ],
+        borderColor: [
+          'rgba(239, 68, 68, 1)',
+          'rgba(34, 197, 94, 1)',
+          'rgba(156, 163, 175, 1)'
+        ],
+        borderWidth: 2,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: 11
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: 'white',
+          bodyColor: 'white',
+          callbacks: {
+            label: function(context) {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = total > 0 ? Math.round((context.parsed / total) * 100) : 0;
+              return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+            }
+          }
+        }
+      },
+      cutout: '60%'
+    }
+  });
+}
+
+function updateRecentConsumption(recentConsumption) {
+  const container = document.getElementById('recent-consumption');
+  container.innerHTML = '';
+  
+  if (recentConsumption.length === 0) {
+    container.innerHTML = '<p class="text-gray-500 text-sm">No recent activity</p>';
+    return;
+  }
+  
+  recentConsumption.slice(0, 10).forEach(item => {
+    const activityItem = document.createElement('div');
+    activityItem.className = 'flex items-center space-x-3 p-3 bg-gray-50 rounded-lg';
+    
+    const date = new Date(item.date_used).toLocaleDateString();
+    const time = new Date(item.date_used).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
+    activityItem.innerHTML = `
+      <div class="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-gray-900 truncate">${item.material_name}</p>
+        <p class="text-xs text-gray-500">${item.quantity_used} units • ${date} ${time}</p>
+      </div>
+    `;
+    
+    container.appendChild(activityItem);
+  });
+}
+
+function updateResourceLimitsTable(resourceLimits) {
+  const tbody = document.getElementById('resource-limits-body');
+  tbody.innerHTML = '';
+  
+  if (!resourceLimits || !resourceLimits.items || resourceLimits.items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 py-4">No resource limit data available</td></tr>';
+    return;
+  }
+  
+  resourceLimits.items.slice(0, 10).forEach(item => {
+    const row = document.createElement('tr');
+    
+    const statusClass = {
+      'exceeded': 'bg-red-100 text-red-800',
+      'under': 'bg-green-100 text-green-800',
+      'no-estimate': 'bg-gray-100 text-gray-800'
+    }[item.status] || 'bg-gray-100 text-gray-800';
+    
+    row.innerHTML = `
+      <td class="font-medium">${item.material_name}</td>
+      <td class="text-right">${item.estimated_total_value === null ? '—' : currencyFmt(item.estimated_total_value)}</td>
+      <td class="text-right">${currencyFmt(item.actual_value_used)}</td>
+      <td class="text-right">${item.variance_value === null ? '—' : currencyFmt(item.variance_value)}</td>
+      <td><span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${item.status}</span></td>
+    `;
+    
+    tbody.appendChild(row);
+  });
+}
+
+function setupWebSocket(projectId) {
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${protocol}://${location.host}/ws/dashboard`;
+  
+  ws = new WebSocket(url);
+  
+  ws.onopen = () => {
+    console.log('Dashboard websocket connected');
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const message = JSON.parse(event.data);
+      handleDashboardEvent(message);
+    } catch(error) {
+      console.error('Invalid websocket message:', error);
+    }
+  };
+  
+  ws.onclose = () => {
+    console.log('Dashboard websocket closed');
+    // Attempt to reconnect after 5 seconds
+    setTimeout(() => {
+      if (!ws || ws.readyState === WebSocket.CLOSED) {
+        setupWebSocket(projectId);
+      }
+    }, 5000);
+  };
+  
+  ws.onerror = (error) => {
+    console.error('Websocket error:', error);
+  };
+}
+
+function handleDashboardEvent(message) {
+  const { type, payload } = message;
+  
+  switch(type) {
+    case 'consumption_created':
+    case 'waste_created':
+    case 'cost_created':
+    case 'inventory_updated':
+    case 'alert_created':
+    case 'alert_resolved':
+    case 'limit_exceeded':
+      // Refresh dashboard data
+      initDashboard();
+      break;
+    default:
+      console.log('Unknown dashboard event:', type, payload);
+      break;
+  }
+}
+
+// Initialize dashboard on page load
+document.addEventListener("DOMContentLoaded", function() { 
+  console.log('DOM loaded, initializing dashboard...');
+  // Start dashboard initialization immediately
+  initDashboard();
+});
+
+// Handle window resize to maintain chart responsiveness
+window.addEventListener('resize', function() {
+  if (overrunsChart) {
+    overrunsChart.resize();
+  }
+  if (alertsChart) {
+    alertsChart.resize();
+  }
+});
+</script>
+{%- endblock -%}

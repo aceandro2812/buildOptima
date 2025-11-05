@@ -1,0 +1,269 @@
+{%- extends "base.html" -%}
+{%- block title -%}Dashboard - BuildOptima{%- endblock -%}
+
+{%- block content -%}
+<div class="container mx-auto p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-semibold">Real-time Dashboard</h1>
+    <div class="flex items-center gap-3">
+      <label for="dashboard-project" class="mr-2">Project:</label>
+      <select id="dashboard-project" class="p-2 border rounded" onchange="initDashboard()">
+        <option value="">All Projects</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid grid-cols-4 gap-4 mb-6">
+    <div class="p-4 bg-white rounded shadow">
+      <div class="text-sm text-gray-500">Total Materials</div>
+      <div id="stat-total-materials" class="text-2xl font-bold">0</div>
+    </div>
+    <div class="p-4 bg-white rounded shadow">
+      <div class="text-sm text-gray-500">Active Alerts</div>
+      <div id="stat-active-alerts" class="text-2xl font-bold text-red-600">0</div>
+    </div>
+    <div class="p-4 bg-white rounded shadow">
+      <div class="text-sm text-gray-500">Items Exceeded</div>
+      <div id="stat-exceeded" class="text-2xl font-bold">0</div>
+    </div>
+    <div class="p-4 bg-white rounded shadow">
+      <div class="text-sm text-gray-500">Total Cost</div>
+      <div id="stat-total-cost" class="text-2xl font-bold">₹ 0</div>
+    </div>
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="p-4 bg-white rounded shadow">
+      <h3 class="text-sm font-semibold mb-2">Top Overruns</h3>
+      <canvas id="chart-overruns" width="400" height="260"></canvas>
+    </div>
+    <div class="p-4 bg-white rounded shadow">
+      <h3 class="text-sm font-semibold mb-2">Alerts Distribution</h3>
+      <canvas id="chart-alerts" width="400" height="260"></canvas>
+    </div>
+    <div class="p-4 bg-white rounded shadow">
+      <h3 class="text-sm font-semibold mb-2">Recent Consumption</h3>
+      <ul id="recent-consumption" class="text-sm list-disc pl-5 max-h-[220px] overflow-auto"></ul>
+    </div>
+  </div>
+
+  <!-- Resource limits mini table -->
+  <div class="p-4 bg-white rounded shadow">
+    <h3 class="text-lg font-semibold mb-3">Resource Limits Snapshot</h3>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="px-3 py-2 text-left">Material</th>
+            <th class="px-3 py-2 text-right">Estimated Value</th>
+            <th class="px-3 py-2 text-right">Actual Value</th>
+            <th class="px-3 py-2 text-right">Variance</th>
+            <th class="px-3 py-2 text-left">Status</th>
+          </tr>
+        </thead>
+        <tbody id="resource-limits-body" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+let ws = null;
+let overrunsChart = null;
+let alertsChart = null;
+
+function currencyFmt(n){ return '₹ ' + Number(n).toLocaleString(); }
+
+async function initDashboard(){
+  // close existing websocket if open
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.close();
+  }
+
+  const projectSel = document.getElementById('dashboard-project');
+  const projectId = projectSel ? projectSel.value : null;
+
+  // fetch snapshot
+  const url = projectId ? `/api/dashboard/snapshot?project_id=${projectId}` : '/api/dashboard/snapshot';
+  const resp = await fetch(url);
+  if(!resp.ok){ console.error(await resp.text()); return; }
+  const data = await resp.json();
+  // populate stats
+  document.getElementById('stat-total-materials').innerText = data.summary.total_materials;
+  document.getElementById('stat-active-alerts').innerText = data.summary.active_alerts;
+  document.getElementById('stat-exceeded').innerText = data.summary.num_exceeded;
+  document.getElementById('stat-total-cost').innerText = currencyFmt(data.summary.total_cost || 0);
+
+  // top overruns -> overrunsChart
+  const top = data.top_overruns || [];
+  const labels = top.map(i => i.material_name);
+  const values = top.map(i => i.variance || 0);
+  initOverrunsChart(labels, values);
+
+  // alerts distribution: simple donut (exceeded vs under vs no-estimate)
+  const rlimits = data.resource_limits;
+  let exceeded = 0, under = 0, no_est = 0;
+  if(rlimits && rlimits.items){
+    for(const it of rlimits.items){
+      if(it.status === 'exceeded') exceeded++;
+      else if(it.status === 'under') under++;
+      else no_est++;
+    }
+  }
+  initAlertsChart([exceeded, under, no_est]);
+
+  // recent consumption list
+  const rc = data.recent_consumption || [];
+  const rcList = document.getElementById('recent-consumption');
+  rcList.innerHTML = '';
+  for(const item of rc){
+    const li = document.createElement('li');
+    li.innerText = `${item.material_name} — ${item.quantity_used} on ${new Date(item.date_used).toLocaleString()}`;
+    rcList.appendChild(li);
+  }
+
+  // resource limits table
+  const tbody = document.getElementById('resource-limits-body');
+  tbody.innerHTML = '';
+  if(rlimits && rlimits.items){
+    for(const it of rlimits.items.slice(0, 20)){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="px-3 py-2">${it.material_name}</td>
+                      <td class="px-3 py-2 text-right">${it.estimated_total_value===null? '—': currencyFmt(it.estimated_total_value)}</td>
+                      <td class="px-3 py-2 text-right">${currencyFmt(it.actual_value_used)}</td>
+                      <td class="px-3 py-2 text-right">${it.variance_value===null? '—' : currencyFmt(it.variance_value)}</td>
+                      <td class="px-3 py-2">${it.status}</td>`;
+      tbody.appendChild(tr);
+    }
+  }
+
+  // open websocket to receive live events
+  setupWebSocket(projectId);
+}
+
+function initOverrunsChart(labels, values) {
+    console.log("Initializing or updating overruns chart");
+    const ctx = document.getElementById('chart-overruns').getContext('2d');
+    if (overrunsChart) {
+        overrunsChart.data.labels = labels;
+        overrunsChart.data.datasets[0].data = values;
+        overrunsChart.update();
+    } else {
+        overrunsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Variance (₹)',
+                    data: values,
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+function initAlertsChart(data) {
+    console.log("Initializing or updating alerts chart");
+    const ctx = document.getElementById('chart-alerts').getContext('2d');
+    if (alertsChart) {
+        alertsChart.data.datasets[0].data = data;
+        alertsChart.update();
+    } else {
+        alertsChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Exceeded', 'Under', 'No Estimate'],
+                datasets: [{
+                    data: data,
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+}
+
+function setupWebSocket(projectId){
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${protocol}://${location.host}/ws/dashboard`;
+  ws = new WebSocket(url);
+  ws.onopen = () => console.log('Dashboard websocket connected');
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data);
+      handleDashboardEvent(msg);
+    } catch(e){
+      console.error('Invalid ws message', e);
+    }
+  };
+  ws.onclose = () => console.log('Dashboard websocket closed');
+  ws.onerror = (e) => console.error('Websocket error', e);
+}
+
+function handleDashboardEvent(msg){
+  // msg: { type: "<event_type>", payload: { ... } }
+  const type = msg.type;
+  const p = msg.payload || {};
+  switch(type){
+    case 'consumption_created':
+    case 'waste_created':
+    case 'cost_created':
+    case 'inventory_updated':
+      // Refresh snapshot (simple approach)
+      // Could optimize to update only affected charts; but snapshot is simple for MVP
+      const projSel = document.getElementById('dashboard-project');
+      const pid = projSel ? projSel.value : null;
+      initDashboard(); // re-fetch snapshot and redraw
+      break;
+    case 'alert_created':
+    case 'alert_resolved':
+      initDashboard();
+      break;
+    case 'limit_exceeded':
+      // show toast? and refresh
+      initDashboard();
+      break;
+    default:
+      // unknown event - optionally refresh
+      console.log('Unmapped dashboard event', type, p);
+      break;
+  }
+}
+
+// initialize on load (select default)
+document.addEventListener("DOMContentLoaded", function(){ initDashboard(); });
+</script>
+{%- endblock -%}
