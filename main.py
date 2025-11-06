@@ -752,6 +752,68 @@ async def api_get_distance_matrix(db: Session = Depends(get_db)):
             detail="Failed to calculate distance matrix"
         )
 
+# === Alerts API Endpoints ===
+@app.get("/api/alerts", response_class=JSONResponse, tags=["Alerts"])
+async def api_get_alerts(project_id: Optional[int] = None, db: Session = Depends(get_db)):
+    """Get active alerts, optionally filtered by project."""
+    try:
+        alerts = get_alerts(db)
+        
+        # Filter by project if specified
+        if project_id:
+            # Filter alerts for materials in the specified project
+            filtered_alerts = []
+            for alert in alerts:
+                if alert.material and alert.material.project_id == project_id:
+                    filtered_alerts.append(alert)
+            alerts = filtered_alerts
+        
+        # Convert to JSON-serializable format
+        alerts_data = []
+        for alert in alerts:
+            alert_data = {
+                "id": alert.id,
+                "alert_type": alert.alert_type,
+                "message": alert.message,
+                "date_created": alert.date_created.isoformat(),
+                "is_active": alert.is_active,
+                "material_id": alert.material_id,
+                "material_name": alert.material.material_name if alert.material else None,
+                "project_name": alert.material.project.name if alert.material and alert.material.project else None
+            }
+            alerts_data.append(alert_data)
+        
+        return alerts_data
+        
+    except Exception as e:
+        logger.exception("Error fetching alerts")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to fetch alerts"
+        )
+
+@app.post("/api/alerts/{alert_id}/resolve", response_class=JSONResponse, tags=["Alerts"])
+async def api_resolve_alert(alert_id: int, db: Session = Depends(get_db)):
+    """Mark an alert as resolved (inactive)."""
+    try:
+        alert = db.query(Alert).filter(Alert.id == alert_id).first()
+        if not alert:
+            raise HTTPException(status_code=404, detail="Alert not found")
+        
+        alert.is_active = False
+        db.commit()
+        
+        return {"message": "Alert resolved successfully", "alert_id": alert_id}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error resolving alert")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to resolve alert"
+        )
+
 # === Agent API Endpoints ===
 @app.get("/api/debris/report", response_class=JSONResponse, tags=["AI Agents"])
 async def get_debris_analysis_report():
