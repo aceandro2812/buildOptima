@@ -153,6 +153,9 @@ class ProjectBase(BaseModel):
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     status: Optional[str] = "Planning"
+    # GIS coordinates
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude in decimal degrees")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude in decimal degrees")
 
 class ProjectCreate(ProjectBase):
     pass
