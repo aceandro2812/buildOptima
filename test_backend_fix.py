@@ -69,7 +69,7 @@ def test_serialization():
         cost = MockCost()
         cost_dict = serialize_cost(cost)
         print("✅ Cost serialization successful")
-        print(f"   Sample: {cost_dict['material']['material_name']} - ${cost_dict['total_cost']}")
+        print(f"   Sample: {cost_dict['material']['material_name']} - ₹{cost_dict['total_cost']}")
         
         consumption = MockConsumption()
         consumption_dict = serialize_consumption(consumption)
