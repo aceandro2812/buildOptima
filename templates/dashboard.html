@@ -85,6 +85,22 @@
     </div>
   </div>
 
+  <!-- Project Locations Map -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold text-gray-900">Project Locations</h3>
+      <div class="flex items-center space-x-2 text-sm text-gray-600">
+        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+        <span>Active Projects</span>
+        <div class="w-3 h-3 bg-green-500 rounded-full ml-4"></div>
+        <span>Completed</span>
+        <div class="w-3 h-3 bg-yellow-500 rounded-full ml-4"></div>
+        <span>Planning</span>
+      </div>
+    </div>
+    <div id="projects-map" style="height: 400px; border-radius: 8px;" class="border border-gray-200"></div>
+  </div>
+
   <!-- Data Tables Section -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
     <!-- Top Overruns Table -->
@@ -149,8 +165,99 @@
 
 <script>
 let ws = null;
+let projectsMap = null;
 
 function currencyFmt(n){ return '₹ ' + Number(n).toLocaleString(); }
+
+// Initialize the projects map
+function initProjectsMap() {
+  // Initialize map centered on India
+  projectsMap = L.map('projects-map').setView([20.5937, 78.9629], 5);
+  
+  // Add OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(projectsMap);
+  
+  // Load and display project markers
+  loadProjectMarkers();
+}
+
+// Load project markers from API
+async function loadProjectMarkers() {
+  try {
+    const response = await fetch('/api/gis/project-locations');
+    if (!response.ok) {
+      console.error('Failed to fetch project locations');
+      return;
+    }
+    
+    const projects = await response.json();
+    
+    // Clear existing markers
+    projectsMap.eachLayer((layer) => {
+      if (layer instanceof L.Marker) {
+        projectsMap.removeLayer(layer);
+      }
+    });
+    
+    // Add markers for each project with coordinates
+    projects.forEach(project => {
+      if (project.latitude && project.longitude) {
+        // Determine marker color based on project status
+        const markerColor = getProjectStatusColor(project.status);
+        
+        // Create custom marker icon
+        const markerIcon = L.divIcon({
+          className: 'custom-marker',
+          html: `<div style="background-color: ${markerColor}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8]
+        });
+        
+        // Create marker with popup
+        const marker = L.marker([project.latitude, project.longitude], { icon: markerIcon })
+          .bindPopup(`
+            <div class="p-2">
+              <h4 class="font-semibold text-gray-900">${project.name}</h4>
+              <p class="text-sm text-gray-600 mt-1">Status: <span class="font-medium">${project.status}</span></p>
+              ${project.location ? `<p class="text-sm text-gray-600">Location: ${project.location}</p>` : ''}
+              <p class="text-xs text-gray-500 mt-2">Lat: ${project.latitude.toFixed(4)}, Lng: ${project.longitude.toFixed(4)}</p>
+            </div>
+          `);
+        
+        marker.addTo(projectsMap);
+      }
+    });
+    
+    // Fit map to show all markers if there are any
+    const markers = [];
+    projectsMap.eachLayer((layer) => {
+      if (layer instanceof L.Marker) {
+        markers.push(layer);
+      }
+    });
+    
+    if (markers.length > 0) {
+      const group = new L.featureGroup(markers);
+      projectsMap.fitBounds(group.getBounds().pad(0.1));
+    }
+    
+  } catch (error) {
+    console.error('Error loading project markers:', error);
+  }
+}
+
+// Get color based on project status
+function getProjectStatusColor(status) {
+  switch (status?.toLowerCase()) {
+    case 'completed': return '#10b981'; // green
+    case 'in progress': return '#3b82f6'; // blue
+    case 'planning': return '#f59e0b'; // yellow
+    case 'on hold': return '#ef4444'; // red
+    default: return '#6b7280'; // gray
+  }
+}
 
 async function initDashboard(){
   const projectSel = document.getElementById('dashboard-project');
@@ -180,6 +287,13 @@ async function initDashboard(){
     updateAlertsTable(data.resource_limits);
     updateRecentConsumption(data.recent_consumption || []);
     updateResourceLimitsTable(data.resource_limits);
+
+    // Initialize or update projects map
+    if (!projectsMap) {
+      initProjectsMap();
+    } else {
+      loadProjectMarkers();
+    }
 
     // Setup websocket for real-time updates
     setupWebSocket(projectId);

@@ -15,11 +15,15 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True, unique=True, nullable=False)
-    location = Column(String, nullable=True)
+    location = Column(String, nullable=True)  # Keep existing text location field
     description = Column(Text, nullable=True)
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     status = Column(String, default="Planning", nullable=False) # e.g., Planning, In Progress, Completed, On Hold
+    
+    # GIS Location fields - simple latitude/longitude approach
+    latitude = Column(Float, nullable=True)  # Decimal degrees
+    longitude = Column(Float, nullable=True)  # Decimal degrees
 
     # Relationships to other tables that link TO this project
     # cascade="all, delete-orphan": If a project is deleted, its related records are also deleted.

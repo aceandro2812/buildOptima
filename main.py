@@ -572,6 +572,35 @@ async def api_delete_project(project_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error deleting project.")
     return None
 
+# === GIS API Endpoints ===
+@app.get("/api/gis/project-locations", response_class=JSONResponse, tags=["GIS"])
+async def api_get_project_locations(db: Session = Depends(get_db)):
+    """Get all projects with their location coordinates for map display."""
+    try:
+        projects = get_projects(db=db)
+        
+        # Return simplified project data with coordinates
+        locations = []
+        for project in projects:
+            project_data = {
+                "id": project.id,
+                "name": project.name,
+                "status": project.status,
+                "location": project.location,  # Text location
+                "latitude": project.latitude,
+                "longitude": project.longitude
+            }
+            locations.append(project_data)
+        
+        return locations
+        
+    except Exception as e:
+        logger.exception("Error fetching project locations")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to fetch project locations"
+        )
+
 # === Agent API Endpoints ===
 @app.get("/api/debris/report", response_class=JSONResponse, tags=["AI Agents"])
 async def get_debris_analysis_report():
