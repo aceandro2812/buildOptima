@@ -601,6 +601,157 @@ async def api_get_project_locations(db: Session = Depends(get_db)):
             detail="Failed to fetch project locations"
         )
 
+@app.get("/api/gis/supplier-locations", response_class=JSONResponse, tags=["GIS"])
+async def api_get_supplier_locations(db: Session = Depends(get_db)):
+    """Get all suppliers with their location coordinates for map display."""
+    try:
+        suppliers = get_suppliers(db=db)
+        
+        # Return simplified supplier data with coordinates
+        locations = []
+        for supplier in suppliers:
+            supplier_data = {
+                "id": supplier.id,
+                "name": supplier.name,
+                "contact_person": supplier.contact_person,
+                "phone": supplier.phone,
+                "address": supplier.address,  # Text address
+                "latitude": supplier.latitude,
+                "longitude": supplier.longitude
+            }
+            locations.append(supplier_data)
+        
+        return locations
+        
+    except Exception as e:
+        logger.exception("Error fetching supplier locations")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to fetch supplier locations"
+        )
+
+@app.get("/api/gis/project-distances/{project_id}", response_class=JSONResponse, tags=["GIS"])
+async def api_get_project_distances(project_id: int, db: Session = Depends(get_db)):
+    """Get distances from a project to all suppliers."""
+    try:
+        # Import distance calculator
+        from distance_utils import calculate_project_supplier_distances
+        
+        # Get project
+        project = get_project_by_id(db=db, project_id=project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        if not project.latitude or not project.longitude:
+            raise HTTPException(status_code=400, detail="Project has no coordinates")
+        
+        # Get all suppliers
+        suppliers = get_suppliers(db=db)
+        
+        # Calculate distances
+        suppliers_with_distance = calculate_project_supplier_distances(
+            project.latitude, project.longitude, suppliers
+        )
+        
+        return {
+            "project": {
+                "id": project.id,
+                "name": project.name,
+                "latitude": project.latitude,
+                "longitude": project.longitude
+            },
+            "suppliers": suppliers_with_distance
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error calculating project distances")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to calculate distances"
+        )
+
+@app.get("/api/gis/nearest-suppliers/{project_id}", response_class=JSONResponse, tags=["GIS"])
+async def api_get_nearest_suppliers(project_id: int, limit: int = 5, db: Session = Depends(get_db)):
+    """Get nearest suppliers to a project."""
+    try:
+        # Import distance calculator
+        from distance_utils import find_nearest_suppliers
+        
+        # Get project
+        project = get_project_by_id(db=db, project_id=project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        if not project.latitude or not project.longitude:
+            raise HTTPException(status_code=400, detail="Project has no coordinates")
+        
+        # Get all suppliers
+        suppliers = get_suppliers(db=db)
+        
+        # Find nearest suppliers
+        nearest_suppliers = find_nearest_suppliers(
+            project.latitude, project.longitude, suppliers, limit
+        )
+        
+        return {
+            "project": {
+                "id": project.id,
+                "name": project.name,
+                "latitude": project.latitude,
+                "longitude": project.longitude
+            },
+            "nearest_suppliers": nearest_suppliers,
+            "total_suppliers_with_coordinates": len([s for s in suppliers if s.latitude and s.longitude])
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error finding nearest suppliers")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to find nearest suppliers"
+        )
+
+@app.get("/api/gis/distance-matrix", response_class=JSONResponse, tags=["GIS"])
+async def api_get_distance_matrix(db: Session = Depends(get_db)):
+    """Get distance matrix between all projects and suppliers."""
+    try:
+        # Import distance calculator
+        from distance_utils import calculate_project_supplier_distances
+        
+        def calculate_distance_matrix(projects, suppliers):
+            distance_matrix = {}
+            for project in projects:
+                if project.latitude is not None and project.longitude is not None:
+                    suppliers_with_distance = calculate_project_supplier_distances(
+                        project.latitude, project.longitude, suppliers
+                    )
+                    distance_matrix[project.id] = suppliers_with_distance
+            return distance_matrix
+        
+        # Get all projects and suppliers
+        projects = get_projects(db=db)
+        suppliers = get_suppliers(db=db)
+        
+        # Calculate distance matrix
+        distance_matrix = calculate_distance_matrix(projects, suppliers)
+        
+        return {
+            "projects_count": len([p for p in projects if p.latitude and p.longitude]),
+            "suppliers_count": len([s for s in suppliers if s.latitude and s.longitude]),
+            "distance_matrix": distance_matrix
+        }
+        
+    except Exception as e:
+        logger.exception("Error calculating distance matrix")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail="Failed to calculate distance matrix"
+        )
+
 # === Agent API Endpoints ===
 @app.get("/api/debris/report", response_class=JSONResponse, tags=["AI Agents"])
 async def get_debris_analysis_report():

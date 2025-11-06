@@ -45,6 +45,9 @@ class SupplierBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    # GIS coordinates
+    latitude: Optional[float] = Field(None, ge=-90, le=90, description="Latitude in decimal degrees")
+    longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitude in decimal degrees")
     lead_time_days: Optional[int] = Field(None, gt=0)
     reliability_rating: Optional[float] = Field(None, ge=0, le=5)
 

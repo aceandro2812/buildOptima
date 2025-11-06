@@ -77,6 +77,10 @@ class Supplier(Base):
     address = Column(String, nullable=True) # Allow nullable
     lead_time_days = Column(Integer, nullable=True) # Allow nullable
     reliability_rating = Column(Float, nullable=True) # Allow nullable
+    
+    # GIS Location fields - simple latitude/longitude approach
+    latitude = Column(Float, nullable=True)  # Decimal degrees
+    longitude = Column(Float, nullable=True)  # Decimal degrees
 
     # Relationships
     materials = relationship("Inventory", back_populates="supplier") # Default RESTRICT on delete
